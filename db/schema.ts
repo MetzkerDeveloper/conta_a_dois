@@ -189,6 +189,7 @@ export const categories = pgTable(
       .references(() => households.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     color: text('color').notNull().default('#286351'),
+    active: boolean('active').notNull().default(true),
   },
   (table) => [
     unique('categories_household_id_unique').on(table.householdId, table.id),

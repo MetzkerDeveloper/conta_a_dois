@@ -35,7 +35,9 @@ export default async function EditExpensePage({
           month={data.month}
           expense={expense}
           members={data.members}
-          categories={data.categories}
+          categories={data.categories.filter(
+            (category) => category.active || category.id === expense.categoryId,
+          )}
           designatedPayerId={data.rule.designatedPayerId}
         />
       )}

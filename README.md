@@ -11,7 +11,7 @@ npm run dev
 
 Abra http://localhost:3000. A página inicial é uma demonstração com dados fictícios de novembro de 2026, mantidos somente na memória da aba. Recarregar restaura o exemplo.
 
-O fluxo real fica em `/login` → `/comecar` → `/casal`. Ele usa Better Auth com link mágico, Postgres/Drizzle e Resend. O painel autenticado salva rendas, despesas, categorias e regras por competência no banco. Inclui criação, edição e exclusão de despesas, filtros, seleção de mês e cálculo do repasse. Veja [como usar o espaço real](docs/uso.md).
+O fluxo real fica em `/login` → `/comecar` → `/casal`. Ele usa Better Auth com link mágico, Postgres/Drizzle e Resend. O painel autenticado salva rendas, despesas, categorias e regras por competência no banco. Inclui criação, edição, exclusão e filtro de despesas; categorias personalizadas; seleção de mês; e cálculo do repasse. Veja [como usar o espaço real](docs/uso.md).
 
 Para ativar o acesso, copie `.env.example` para `.env.local`, preencha as credenciais e aplique as migrations conforme o [guia de configuração](docs/setup.md). Sem credenciais, a demonstração continua disponível e o login informa que o acesso ainda não foi ativado.
 

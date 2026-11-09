@@ -29,7 +29,7 @@ export default async function NewExpensePage({
           key={data.month}
           month={data.month}
           members={data.members}
-          categories={data.categories}
+          categories={data.categories.filter((category) => category.active)}
           creationKey={randomUUID()}
           designatedPayerId={data.rule.designatedPayerId}
         />

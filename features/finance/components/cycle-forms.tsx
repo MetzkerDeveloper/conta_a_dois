@@ -100,6 +100,7 @@ export function RecurringForm({
         {categories.map((item) => (
           <option key={item.id} value={item.id}>
             {item.name}
+            {!item.active ? ' (arquivada)' : ''}
           </option>
         ))}
       </select>

@@ -25,7 +25,7 @@ export default async function RecurringPage({
         <h2>Nova recorrência</h2>
         <RecurringForm
           month={data.month}
-          categories={data.categories}
+          categories={data.categories.filter((category) => category.active)}
           creationKey={randomUUID()}
         />
       </section>
@@ -42,7 +42,10 @@ export default async function RecurringPage({
               </summary>
               <RecurringForm
                 month={data.month}
-                categories={data.categories}
+                categories={data.categories.filter(
+                  (category) =>
+                    category.active || category.id === template.categoryId,
+                )}
                 creationKey={template.id}
                 recurring={template}
               />

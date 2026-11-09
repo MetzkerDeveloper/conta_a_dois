@@ -17,6 +17,9 @@ import {
   saveIncome,
   updateDefaultRule,
   updateExpense,
+  saveCategory,
+  setCategoryActive,
+  saveRecurring,
 } from '@/features/finance/service';
 import { inputMoney } from '@/features/finance/month';
 
@@ -364,5 +367,100 @@ describe('finanças persistidas e autorizadas por casal', () => {
         creationKey: randomUUID(),
       }),
     ).rejects.toThrow();
+  });
+  it('cria, renomeia e arquiva categorias sem perder histórico nem quebrar recorrências', async () => {
+    const f = await fixture();
+    const category = await saveCategory(db, f.owner, {
+      name: 'Pets',
+      color: '#aa593a',
+    });
+    await expect(
+      saveCategory(db, f.partner, { name: 'pets', color: '#286351' }),
+    ).rejects.toThrow('Já existe');
+
+    const recurringId = await saveRecurring(db, f.owner, {
+      description: 'Ração',
+      amount: '80,00',
+      categoryId: category.id,
+      dayOfMonth: 10,
+      startMonth: '2027-01',
+      active: true,
+      version: 0,
+      creationKey: randomUUID(),
+    });
+    await expect(
+      setCategoryActive(db, f.partner, { id: category.id, active: false }),
+    ).rejects.toThrow('Pause as recorrências');
+    await saveRecurring(db, f.partner, {
+      id: recurringId,
+      description: 'Ração',
+      amount: '80,00',
+      categoryId: category.id,
+      dayOfMonth: 10,
+      startMonth: '2027-01',
+      active: false,
+      version: 1,
+      creationKey: randomUUID(),
+    });
+
+    const expense = await createExpense(db, f.owner, {
+      ...f.expense,
+      categoryId: category.id,
+    });
+    await setCategoryActive(db, f.partner, { id: category.id, active: false });
+    const updatedCategory = await saveCategory(db, f.partner, {
+      id: category.id,
+      name: 'Animais',
+      color: '#aa593a',
+    });
+    expect(updatedCategory.active).toBe(false);
+    const data = await getMonthlyFinance(db, f.owner, '2026-11');
+    expect(
+      data.expenses.find((item) => item.id === expense.id)?.categoryId,
+    ).toBe(category.id);
+    expect(data.categories.find((item) => item.id === category.id)?.name).toBe(
+      'Animais',
+    );
+    await expect(
+      createExpense(db, f.owner, {
+        ...f.expense,
+        categoryId: category.id,
+        creationKey: randomUUID(),
+      }),
+    ).rejects.toThrow('categoria do seu casal');
+    await setCategoryActive(db, f.owner, { id: category.id, active: true });
+    expect(
+      (await getMonthlyFinance(db, f.owner, '2026-11')).categories.find(
+        (item) => item.id === category.id,
+      )?.active,
+    ).toBe(true);
+  });
+  it('não permite alterar categoria de outro casal nem arquivar a última ativa', async () => {
+    const f = await fixture();
+    const other = await fixture();
+    await expect(
+      saveCategory(db, f.owner, {
+        id: other.data.categories[0]!.id,
+        name: 'Categoria externa',
+        color: '#286351',
+      }),
+    ).rejects.toThrow();
+    await expect(
+      setCategoryActive(db, f.owner, {
+        id: other.data.categories[0]!.id,
+        active: false,
+      }),
+    ).rejects.toThrow();
+
+    const categories = (await getMonthlyFinance(db, f.owner, '2026-11'))
+      .categories;
+    for (const category of categories.slice(1))
+      await setCategoryActive(db, f.owner, { id: category.id, active: false });
+    await expect(
+      setCategoryActive(db, f.owner, {
+        id: categories[0]!.id,
+        active: false,
+      }),
+    ).rejects.toThrow('ao menos uma categoria ativa');
   });
 });
