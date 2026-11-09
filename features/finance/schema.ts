@@ -113,3 +113,13 @@ export const monthTransitionSchema = z.discriminatedUnion('action', [
     acknowledged: z.literal(true, { error: 'Confirme a reabertura do mês.' }),
   }),
 ]);
+
+export const categorySchema = z.object({
+  id: z.uuid().optional(),
+  name: z.string().trim().min(1, 'Informe o nome da categoria.').max(40),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Escolha uma cor válida.'),
+});
+export const categoryStatusSchema = z.object({
+  id: z.uuid(),
+  active: z.boolean(),
+});

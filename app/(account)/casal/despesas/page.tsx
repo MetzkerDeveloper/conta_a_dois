@@ -70,7 +70,7 @@ export default async function ExpensesPage({
             defaultValue={category}
           >
             <option value="">Todas as categorias</option>
-            {data.categories.map((item) => (
+            {data.displayCategories.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
               </option>
@@ -113,7 +113,7 @@ export default async function ExpensesPage({
                   <strong>{expense.description}</strong>
                   <small>
                     {
-                      data.categories.find(
+                      data.displayCategories.find(
                         (item) => item.id === expense.categoryId,
                       )?.name
                     }{' '}

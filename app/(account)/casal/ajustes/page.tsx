@@ -4,6 +4,7 @@ import { FinanceHeader } from '@/features/finance/components/header';
 import { loadFinance, type SearchParams } from '@/features/finance/queries';
 import { InviteCard } from '@/features/household/components/invite-card';
 import { deleteAccountAction } from '@/features/household/actions';
+import { CategoryManager } from '@/features/finance/components/category-manager';
 
 export default async function SettingsPage({
   searchParams,
@@ -22,6 +23,10 @@ export default async function SettingsPage({
       <section className="panel account-card finance-form-card">
         <h2>Regra para competências sem lançamentos</h2>
         <RuleForm household={data.household} members={data.members} />
+      </section>
+      <section className="panel account-card">
+        <h2>Categorias</h2>
+        <CategoryManager categories={data.categories} />
       </section>
       {data.members.length === 1 && <InviteCard />}
       <section className="panel account-card">

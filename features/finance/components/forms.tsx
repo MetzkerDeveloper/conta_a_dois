@@ -167,6 +167,7 @@ export function ExpenseForm({
         {categories.map((category) => (
           <option key={category.id} value={category.id}>
             {category.name}
+            {!category.active ? ' (arquivada)' : ''}
           </option>
         ))}
       </select>

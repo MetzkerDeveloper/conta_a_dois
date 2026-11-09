@@ -6,7 +6,8 @@
 4. Painel: implementado em `/casal` com competência, cotas, pago, saldo, pendências e sugestão de repasse. Exige dois membros e rendas explícitas do mês; a renda anterior é somente uma sugestão.
 5. Repasses: implementados registro pelo remetente, confirmação exclusiva pelo destinatário, valores parciais, cancelamento de pendentes e desconto somente dos confirmados. Um registro pendente por competência evita envios duplicados; o histórico fica em `/casal/repasses`.
 6. Recorrências e fechamento: implementados geração idempotente ao abrir a competência, pausa/edição de modelos, fechamento com snapshot e reabertura.
-7. Privacidade: exportação JSON do perfil e dos dados compartilhados do casal, exclusão transacional de conta e espaço financeiro com confirmação digitada e aviso sobre o impacto no outro membro. Categorias personalizadas permanecem como melhoria.
+7. Privacidade: exportação JSON do perfil e dos dados compartilhados do casal, exclusão transacional de conta e espaço financeiro com confirmação digitada e aviso sobre o impacto no outro membro.
+8. Categorias: CRUD por casal, cores, arquivamento reversível sem perder o histórico e proteção contra arquivar categorias usadas por recorrências ativas.
 
 Telas: painel, despesas, rendas, repasses e ajustes. Mobile a 360px, navegação inferior com quatro destinos e ação de lançar despesa; desktop com sidebar. Tokens CSS próprios, um destaque, tema escuro, Lucide consistente e tipografia com números tabulares. Moeda alinhada à direita, estados vazio/carregando/erro/sucesso, labels e foco visível; contraste AA. Meta LCP <2,5s em 4G, a medir na aplicação.
 

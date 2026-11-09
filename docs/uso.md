@@ -21,6 +21,8 @@ As duas pessoas podem editar ou excluir despesas. A exclusão exige confirmaçã
 
 Na lista, filtre por categoria e pagamento. Ao mudar a competência, a tela mostra os lançamentos daquele mês. Os dados continuam salvos depois de sair ou recarregar a página.
 
+Em **Ajustes → Categorias**, crie categorias próprias, altere nome e cor, ou arquive e reative. Categorias arquivadas continuam identificando despesas antigas e não aparecem em novos lançamentos. Para arquivar uma categoria usada por recorrências ativas, pause essas recorrências primeiro. O casal precisa manter ao menos uma categoria ativa.
+
 ## Entender o painel
 
 O painel mostra total, já pago, contas pendentes, cota de cada membro e saldo a cobrir ou a receber. O repasse sugerido usa a regra registrada para a competência. Se ainda há contas sem pagamento, o acerto pode mudar ao registrá-las como pagas.
@@ -53,4 +55,4 @@ Para corrigir algo, marque a confirmação e use **Reabrir mês** no mesmo local
 
 Em **Ajustes → Seus dados**, baixe o JSON do perfil e do histórico compartilhado do casal. Em **Excluir conta e dados**, digite `EXCLUIR` para apagar o perfil e o espaço financeiro completo. A exclusão é irreversível e remove o histórico também para o outro membro, que mantém a conta, mas perde o acesso ao casal. Exporte antes de confirmar.
 
-Personalização de categorias e exportação em CSV permanecem fora do MVP. Antes da abertura pública, complete os dados legais do controlador e confirme os prazos de retenção dos provedores na política de privacidade.
+Exportação mensal em CSV permanece como próxima melhoria. Antes da abertura pública, complete os dados legais do controlador e confirme os prazos de retenção dos provedores na política de privacidade.

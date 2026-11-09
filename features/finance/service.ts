@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ne, lte, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ne, lte, sql } from 'drizzle-orm';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Database } from '@/db';
 import {
@@ -27,6 +27,8 @@ import {
   settlementTransitionSchema,
   recurringSchema,
   monthTransitionSchema,
+  categorySchema,
+  categoryStatusSchema,
 } from './schema';
 import { shiftMonth, transferDate } from './month';
 
@@ -96,6 +98,7 @@ async function checkExpenseReferences(
   householdId: string,
   categoryId: string,
   payer: string | null,
+  allowArchivedCategory = false,
 ) {
   const [category] = await tx
     .select({ id: categories.id })
@@ -104,6 +107,7 @@ async function checkExpenseReferences(
       and(
         eq(categories.householdId, householdId),
         eq(categories.id, categoryId),
+        allowArchivedCategory ? undefined : eq(categories.active, true),
       ),
     );
   if (!category) throw new FinanceError('Escolha uma categoria do seu casal.');
@@ -196,12 +200,6 @@ export async function createExpense(
   return db.transaction(async (tx) => {
     const household = await actorHousehold(tx, userId, true);
     const period = await openMonth(tx, household, input.month);
-    await checkExpenseReferences(
-      tx,
-      household.id,
-      input.categoryId,
-      input.paidByUserId,
-    );
     const [existing] = await tx
       .select()
       .from(expenses)
@@ -211,6 +209,13 @@ export async function createExpense(
           eq(expenses.creationKey, input.creationKey),
         ),
       );
+    await checkExpenseReferences(
+      tx,
+      household.id,
+      input.categoryId,
+      input.paidByUserId,
+      existing?.categoryId === input.categoryId,
+    );
     if (existing) {
       if (
         existing.month === period.month &&
@@ -272,6 +277,7 @@ export async function updateExpense(
       household.id,
       input.categoryId,
       input.paidByUserId,
+      existing.categoryId === input.categoryId,
     );
     await checkTotal(tx, household.id, input.month, input.amount, existing.id);
     const [updated] = await tx
@@ -461,6 +467,12 @@ async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
       )
     : null;
   const frozen = period?.closedAt ? period.snapshot : null;
+  const periodCategories =
+    frozen && Array.isArray(frozen.data.categories)
+      ? (frozen.data.categories as Array<(typeof categoryList)[number]>).map(
+          (category) => ({ ...category, active: category.active ?? true }),
+        )
+      : categoryList;
   return {
     month,
     household,
@@ -471,6 +483,7 @@ async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
     previousIncomes,
     expenses: monthlyExpenses,
     categories: categoryList,
+    displayCategories: periodCategories,
     result: frozen?.result ?? reconciled,
     settlements: monthlySettlements,
     totalCents: frozen?.totalCents ?? Number(totalCents),
@@ -479,6 +492,112 @@ async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
 }
 
 export type MonthlyFinance = Awaited<ReturnType<typeof getMonthlyFinance>>;
+
+export async function saveCategory(db: Database, userId: string, raw: unknown) {
+  const input = categorySchema.parse(raw);
+  return db.transaction(async (tx) => {
+    const household = await actorHousehold(tx, userId, true);
+    const where = and(
+      eq(categories.householdId, household.id),
+      sql`lower(${categories.name}) = lower(${input.name})`,
+      input.id ? ne(categories.id, input.id) : undefined,
+    );
+    const [duplicate] = await tx
+      .select({ id: categories.id })
+      .from(categories)
+      .where(where)
+      .limit(1);
+    if (duplicate)
+      throw new FinanceError('Já existe uma categoria com esse nome.');
+
+    if (input.id) {
+      const [existing] = await tx
+        .select({ id: categories.id })
+        .from(categories)
+        .where(
+          and(
+            eq(categories.householdId, household.id),
+            eq(categories.id, input.id),
+          ),
+        )
+        .limit(1);
+      if (!existing) throw unavailable();
+      const [updated] = await tx
+        .update(categories)
+        .set({ name: input.name, color: input.color })
+        .where(
+          and(
+            eq(categories.householdId, household.id),
+            eq(categories.id, input.id),
+          ),
+        )
+        .returning();
+      return updated!;
+    }
+
+    const [created] = await tx
+      .insert(categories)
+      .values({
+        householdId: household.id,
+        name: input.name,
+        color: input.color,
+      })
+      .returning();
+    return created!;
+  });
+}
+
+export async function setCategoryActive(
+  db: Database,
+  userId: string,
+  raw: unknown,
+) {
+  const input = categoryStatusSchema.parse(raw);
+  return db.transaction(async (tx) => {
+    const household = await actorHousehold(tx, userId, true);
+    const where = and(
+      eq(categories.householdId, household.id),
+      eq(categories.id, input.id),
+    );
+    const [category] = await tx.select().from(categories).where(where).limit(1);
+    if (!category) throw unavailable();
+    if (!input.active && category.active) {
+      const [otherActive] = await tx
+        .select({ total: count() })
+        .from(categories)
+        .where(
+          and(
+            eq(categories.householdId, household.id),
+            eq(categories.active, true),
+            ne(categories.id, category.id),
+          ),
+        );
+      if (!otherActive?.total)
+        throw new FinanceError('Mantenha ao menos uma categoria ativa.');
+      const [recurring] = await tx
+        .select({ id: recurringExpenses.id })
+        .from(recurringExpenses)
+        .where(
+          and(
+            eq(recurringExpenses.householdId, household.id),
+            eq(recurringExpenses.categoryId, category.id),
+            eq(recurringExpenses.active, true),
+          ),
+        )
+        .limit(1);
+      if (recurring)
+        throw new FinanceError(
+          'Pause as recorrências que usam esta categoria antes de arquivá-la.',
+        );
+    }
+    const [updated] = await tx
+      .update(categories)
+      .set({ active: input.active })
+      .where(where)
+      .returning();
+    return updated!;
+  });
+}
 
 export async function createSettlement(
   db: Database,
@@ -621,28 +740,24 @@ async function generateRecurringInTransaction(
   await openMonth(tx, household, month);
   for (const template of missing) {
     await checkTotal(tx, household.id, month, template.amountCents);
-    await tx
-      .insert(recurringOccurrences)
-      .values({
-        householdId: household.id,
-        recurringId: template.id,
-        month: date,
-      });
-    await tx
-      .insert(expenses)
-      .values({
-        householdId: household.id,
-        month: date,
-        description: template.description,
-        amountCents: template.amountCents,
-        dueDate: transferDate(month, template.dayOfMonth),
-        categoryId: template.categoryId,
-        createdBy: template.createdBy,
-        recurringId: template.id,
-        creationKey: randomUUID(),
-        paidByUserId: null,
-        paidAt: null,
-      });
+    await tx.insert(recurringOccurrences).values({
+      householdId: household.id,
+      recurringId: template.id,
+      month: date,
+    });
+    await tx.insert(expenses).values({
+      householdId: household.id,
+      month: date,
+      description: template.description,
+      amountCents: template.amountCents,
+      dueDate: transferDate(month, template.dayOfMonth),
+      categoryId: template.categoryId,
+      createdBy: template.createdBy,
+      recurringId: template.id,
+      creationKey: randomUUID(),
+      paidByUserId: null,
+      paidAt: null,
+    });
   }
   return missing.length;
 }
@@ -681,7 +796,6 @@ export async function saveRecurring(
   const input = recurringSchema.parse(raw);
   return db.transaction(async (tx) => {
     const household = await actorHousehold(tx, userId, true);
-    await checkExpenseReferences(tx, household.id, input.categoryId, null);
     const values = {
       description: input.description,
       amountCents: input.amount,
@@ -703,12 +817,20 @@ export async function saveRecurring(
         );
       if (existing.startMonth !== `${input.startMonth}-01`)
         throw new FinanceError('A competência inicial não pode ser alterada.');
+      await checkExpenseReferences(
+        tx,
+        household.id,
+        input.categoryId,
+        null,
+        !input.active && existing.categoryId === input.categoryId,
+      );
       await tx
         .update(recurringExpenses)
         .set({ ...values, version: existing.version + 1 })
         .where(where);
       id = existing.id;
     } else {
+      await checkExpenseReferences(tx, household.id, input.categoryId, null);
       const [existing] = await tx
         .select()
         .from(recurringExpenses)
@@ -833,7 +955,7 @@ export async function transitionMonth(
           },
           incomes: data.incomes,
           expenses: data.expenses,
-          categories: data.categories,
+          categories: data.displayCategories,
           settlements: data.settlements,
         }),
       ),
