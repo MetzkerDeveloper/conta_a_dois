@@ -10,7 +10,59 @@ type SendEmail = (message: {
   to: string;
   subject: string;
   text: string;
+  html: string;
 }) => Promise<{ error: DeliveryError | null }>;
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return entities[character]!;
+  });
+}
+
+function accessEmailHtml(url: string): string {
+  const safeUrl = escapeHtml(url);
+  return `<!doctype html>
+<html lang="pt-BR">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+  <body style="margin:0;padding:0;background-color:#f3f6f4;font-family:Arial,Helvetica,sans-serif;color:#202c2c;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Seu link seguro para entrar no Contas a Dois. Ele expira em 10 minutos.</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f6f4;">
+      <tr><td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;border-collapse:separate;border-spacing:0;">
+          <tr><td style="padding:22px 28px;background-color:#286351;border-radius:14px 14px 0 0;">
+            <p style="margin:0;color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.4px;">contas a dois</p>
+            <p style="margin:5px 0 0;color:#dcebe3;font-size:12px;">Um combinado claro para a vida financeira de vocês.</p>
+          </td></tr>
+          <tr><td style="padding:34px 28px 30px;background-color:#ffffff;border:1px solid #e1e9e4;border-top:0;">
+            <p style="margin:0 0 12px;color:#286351;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Acesso à sua conta</p>
+            <h1 style="margin:0 0 14px;color:#202c2c;font-size:26px;line-height:1.25;letter-spacing:-0.6px;">Seu espaço está a um clique.</h1>
+            <p style="margin:0 0 24px;color:#50615a;font-size:15px;line-height:1.65;">Use o botão abaixo para entrar com segurança. Você não precisa criar ou lembrar uma senha.</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+              <tr><td align="center" style="border-radius:8px;background-color:#286351;">
+                <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;border:1px solid #286351;border-radius:8px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">Entrar no Contas a Dois</a>
+              </td></tr>
+            </table>
+            <p style="margin:0 0 8px;color:#657274;font-size:12px;line-height:1.6;">O link expira em <strong style="color:#202c2c;">10 minutos</strong> e só pode ser usado uma vez.</p>
+            <p style="margin:0;color:#657274;font-size:12px;line-height:1.6;">Se o botão não abrir, copie este endereço para o navegador:</p>
+            <p style="margin:8px 0 0;overflow-wrap:anywhere;font-size:12px;line-height:1.6;"><a href="${safeUrl}" style="color:#286351;">${safeUrl}</a></p>
+          </td></tr>
+          <tr><td style="padding:18px 12px;text-align:center;">
+            <p style="margin:0;color:#657274;font-size:12px;line-height:1.6;">Se você não pediu este acesso, pode ignorar esta mensagem.</p>
+            <p style="margin:8px 0 0;color:#87938e;font-size:11px;">Contas a Dois · Organização financeira em conjunto</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
 
 export function isValidSender(from: string): boolean {
   const value = from.trim();
@@ -49,11 +101,13 @@ export async function sendAccessEmail(
   }
   let response;
   try {
+    const text = `Seu acesso ao Contas a Dois\n\nEntre pelo link abaixo:\n${url}\n\nO link expira em 10 minutos e só pode ser usado uma vez. Se você não pediu este acesso, ignore esta mensagem.`;
     response = await send({
       from,
       to: email,
       subject: 'Seu acesso ao Contas a Dois',
-      text: `Use este link para entrar no Contas a Dois:\n\n${url}\n\nEle expira em 10 minutos e só pode ser usado uma vez. Se você não pediu o acesso, ignore esta mensagem.`,
+      text,
+      html: accessEmailHtml(url),
     });
   } catch {
     console.error('Falha no envio de acesso pelo Resend.', {
