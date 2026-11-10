@@ -123,3 +123,9 @@ export const categoryStatusSchema = z.object({
   id: z.uuid(),
   active: z.boolean(),
 });
+
+export const redistributionSchema = z.object({
+  month: monthSchema,
+  fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  enabled: z.boolean(),
+});

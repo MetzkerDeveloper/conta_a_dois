@@ -10,6 +10,7 @@ import {
   Settings2,
   RefreshCw,
   ArrowLeftRight,
+  HeartHandshake,
 } from 'lucide-react';
 import { useHydrated } from '@/lib/use-hydrated';
 
@@ -24,22 +25,41 @@ export function FinanceNavigation() {
   const pathname = usePathname();
   const month = useSearchParams().get('mes');
   return (
-    <nav className="finance-nav" aria-label="Finanças do casal">
-      {links.map(({ href, label, icon: Icon }) => {
-        const active =
-          href === '/casal' ? pathname === href : pathname.startsWith(href);
-        return (
-          <Link
-            key={href}
-            href={href + (month ? `?mes=${encodeURIComponent(month)}` : '')}
-            aria-current={active ? 'page' : undefined}
-          >
-            <Icon size={18} />
-            <span>{label}</span>
-          </Link>
-        );
-      })}
-    </nav>
+    <aside className="finance-sidebar">
+      <div className="finance-space">
+        <HeartHandshake size={24} />
+        <div>
+          <strong>Nosso espaço</strong>
+          <small>Uma vida a dois. Tudo em dia.</small>
+        </div>
+      </div>
+      <p className="eyebrow finance-nav-label">Organizar o mês</p>
+      <nav className="finance-nav" aria-label="Finanças do casal">
+        {links.map(({ href, label, icon: Icon }) => {
+          const active =
+            href === '/casal' ? pathname === href : pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href + (month ? `?mes=${encodeURIComponent(month)}` : '')}
+              aria-current={active ? 'page' : undefined}
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="finance-sidebar-note">
+        <HeartHandshake size={22} />
+        <strong>
+          Mais parceria.
+          <br />
+          Menos contas na cabeça.
+        </strong>
+        <p>Um lugar para cuidar do que é de vocês.</p>
+      </div>
+    </aside>
   );
 }
 export function RefreshFinance() {

@@ -13,6 +13,7 @@ import {
   recurringExpenses,
   recurringOccurrences,
 } from '@/db/schema';
+import { suggestCapacity } from '@/lib/settlement/suggest-capacity';
 import { calculate } from '@/lib/settlement/calculate';
 import { applyTransfers } from '@/lib/settlement/apply-transfers';
 import type { Member } from '@/lib/settlement/types';
@@ -29,6 +30,7 @@ import {
   monthTransitionSchema,
   categorySchema,
   categoryStatusSchema,
+  redistributionSchema,
 } from './schema';
 import { shiftMonth, transferDate } from './month';
 
@@ -451,6 +453,39 @@ async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
         monthlyExpenses,
       )
     : null;
+  const capacitySuggestion = result
+    ? suggestCapacity(
+        members.map((member) => ({
+          userId: member.userId,
+          incomeCents: monthlyIncomes.find(
+            (income) => income.userId === member.userId,
+          )!.amountCents,
+        })) as [Member, Member],
+        result.shares,
+      )
+    : null;
+  const adjusted =
+    result && period?.redistributeByIncome && capacitySuggestion
+      ? {
+          ...result,
+          shares: capacitySuggestion.shares,
+          balances: Object.fromEntries(
+            members.map((member) => [
+              member.userId,
+              capacitySuggestion.shares[member.userId]! -
+                result.paid[member.userId]!,
+            ]),
+          ),
+        }
+      : result;
+  const incomeTotal = monthlyIncomes.reduce(
+    (sum, income) => sum + BigInt(income.amountCents),
+    0n,
+  );
+  if (incomeTotal > BigInt(Number.MAX_SAFE_INTEGER))
+    throw new FinanceError(
+      'A renda total do mês ultrapassa o limite suportado.',
+    );
   const totalCents = monthlyExpenses.reduce(
     (sum, expense) => sum + BigInt(expense.amountCents),
     0n,
@@ -460,9 +495,9 @@ async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
     .reduce((sum, expense) => sum + BigInt(expense.amountCents), 0n);
   if (totalCents > BigInt(Number.MAX_SAFE_INTEGER))
     throw new FinanceError('O total do mês ultrapassa o limite suportado.');
-  const reconciled = result
+  const reconciled = adjusted
     ? applyTransfers(
-        result,
+        adjusted,
         monthlySettlements.filter((item) => item.status === 'confirmed'),
       )
     : null;
@@ -479,12 +514,14 @@ async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
     members,
     period: period ?? null,
     rule,
+    incomeTotalCents: Number(incomeTotal),
     incomes: monthlyIncomes,
     previousIncomes,
     expenses: monthlyExpenses,
     categories: categoryList,
     displayCategories: periodCategories,
     result: frozen?.result ?? reconciled,
+    capacitySuggestion: frozen ? null : capacitySuggestion,
     settlements: monthlySettlements,
     totalCents: frozen?.totalCents ?? Number(totalCents),
     unpaidCents: frozen?.unpaidCents ?? Number(unpaidCents),
@@ -877,6 +914,7 @@ export function monthFingerprint(data: MonthlyFinance): string {
       JSON.stringify({
         month: data.month,
         closedAt: data.period?.closedAt ?? null,
+        redistributeByIncome: data.period?.redistributeByIncome ?? false,
         rule: [
           data.rule.splitMode,
           data.rule.higherShareBps,
@@ -946,6 +984,7 @@ export async function transitionMonth(
       data: JSON.parse(
         JSON.stringify({
           members: data.members,
+          redistributeByIncome: data.period?.redistributeByIncome ?? false,
           rule: {
             mode: data.rule.splitMode,
             higherShareBps: data.rule.higherShareBps,
@@ -964,5 +1003,47 @@ export async function transitionMonth(
       .update(financialMonths)
       .set({ closedAt: now, snapshot })
       .where(where);
+  });
+}
+
+/** O lock é o mesmo das rendas, despesas, repasses e fechamento. */
+export async function setIncomeRedistribution(
+  db: Database,
+  userId: string,
+  raw: unknown,
+) {
+  const input = redistributionSchema.parse(raw);
+  return db.transaction(async (tx) => {
+    const household = await actorHousehold(tx, userId, true);
+    const data = await readMonthlyFinance(tx, userId, input.month);
+    if (data.period?.closedAt)
+      throw new FinanceError(
+        'Este mês está fechado. Reabra o período antes de redistribuir.',
+      );
+    if (monthFingerprint(data) !== input.fingerprint)
+      throw new FinanceError(
+        'As contas ou rendas mudaram. Atualize o painel e confira a nova sugestão.',
+      );
+    if (data.settlements.some((item) => item.status === 'pending'))
+      throw new FinanceError(
+        'Confirme ou cancele os repasses pendentes antes de redistribuir.',
+      );
+    if (
+      input.enabled &&
+      (!data.result || !data.capacitySuggestion?.redistributedCents)
+    )
+      throw new FinanceError(
+        'Não há valor que possa ser redistribuído com as rendas atuais.',
+      );
+    await openMonth(tx, household, input.month);
+    await tx
+      .update(financialMonths)
+      .set({ redistributeByIncome: input.enabled })
+      .where(
+        and(
+          eq(financialMonths.householdId, household.id),
+          eq(financialMonths.month, `${input.month}-01`),
+        ),
+      );
   });
 }

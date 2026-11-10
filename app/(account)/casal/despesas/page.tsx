@@ -93,6 +93,14 @@ export default async function ExpensesPage({
         <button type="submit" className="button secondary">
           Filtrar
         </button>
+        {(category || status) && (
+          <Link
+            className="text-link"
+            href={`/casal/despesas?mes=${data.month}`}
+          >
+            Limpar filtros
+          </Link>
+        )}
       </form>
       <section className="panel real-expense-list">
         {filtered.length === 0 ? (
@@ -104,6 +112,22 @@ export default async function ExpensesPage({
                 ? 'Tente outra categoria ou outro estado de pagamento.'
                 : 'Lance a primeira conta para começar a acompanhar este mês.'}
             </p>
+            {!data.expenses.length && !data.period?.closedAt && (
+              <Link
+                className="button primary auth-submit"
+                href={`/casal/despesas/nova?mes=${data.month}`}
+              >
+                <Plus size={17} /> Lançar primeira despesa
+              </Link>
+            )}
+            {data.expenses.length > 0 && (category || status) && (
+              <Link
+                className="button secondary auth-submit"
+                href={`/casal/despesas?mes=${data.month}`}
+              >
+                Ver todas as despesas
+              </Link>
+            )}
           </div>
         ) : (
           <ul className="expense-rows">

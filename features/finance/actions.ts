@@ -11,6 +11,7 @@ import {
   deleteExpense,
   FinanceError,
   saveIncome,
+  setIncomeRedistribution,
   updateDefaultRule,
   updateExpense,
 } from './service';
@@ -143,5 +144,30 @@ export async function saveRuleAction(
   return {
     message:
       'Combinado salvo. Meses que já têm lançamentos mantêm a regra anterior.',
+  };
+}
+
+export async function redistributeIncomeAction(
+  _: FinanceState,
+  form: FormData,
+): Promise<FinanceState> {
+  const { user } = await requireHousehold();
+  try {
+    if (!(await consumeActionLimit(getDb(), `finance:${user.id}`, 120, 60)))
+      throw new FinanceError('Aguarde um minuto antes de tentar novamente.');
+    await setIncomeRedistribution(getDb(), user.id, {
+      month: form.get('month'),
+      fingerprint: form.get('fingerprint'),
+      enabled: form.get('enabled') === 'true',
+    });
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath('/casal', 'layout');
+  return {
+    message:
+      form.get('enabled') === 'true'
+        ? 'Redistribuição aplicada. O acerto do mês foi recalculado.'
+        : 'A divisão original deste mês foi restaurada.',
   };
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "financial_months" ADD COLUMN "redistribute_by_income" boolean DEFAULT false NOT NULL;
