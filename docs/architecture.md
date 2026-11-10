@@ -36,3 +36,26 @@ Toda action obtém o usuário de uma sessão verificada. requireHousehold() deri
 As operações financeiras ficam em features/finance. Cada mutação consulta a associação do usuário autenticado, bloqueia a linha do casal e valida todas as referências no mesmo household_id. A renda só pode ser alterada por seu titular; ambos podem manter as despesas. Valores em bigint no banco e inteiros seguros no motor; a soma do mês é validada antes da gravação. As leituras usam uma transação repeatable read para não combinar cotas e pagamentos de estados diferentes.
 
 Uma chave por formulário impede duplicação de despesa em reenvios. Versões de renda e despesa rejeitam sobrescritas ou exclusões com dados antigos. A regra do mês não muda quando o padrão do casal é atualizado. closed_at já bloqueia mutações, mas o comando de fechamento/reabertura e o snapshot completo ainda não foram implementados. As categorias são criadas na mesma transação do novo casal; a migration 0001 preenche as categorias dos casais existentes sem alterar usuários ou associações.
+
+## Leituras por tela
+
+As páginas financeiras autenticam a sessão e resolvem a associação ao casal dentro da leitura, sem repetir o carregamento de associação e membros antes da transação. Não há cache compartilhado de dados financeiros. Todas as leituras mantêm isolamento `repeatable read` e acesso somente de leitura; as mutações conservam o lock do casal.
+
+`features/finance/read-models.ts` reúne consultas específicas de rendas, ajustes, recorrências, criação/edição e lista de despesas. O painel e os repasses ainda calculam sobre todas as despesas da competência, omitindo dados que a tela não usa. Os comandos financeiros continuam usando o carregamento completo para fingerprint, conciliação e snapshots.
+
+Quantidade de SELECTs de negócio por carregamento, sem contar a verificação da sessão, BEGIN/COMMIT ou a Server Action de geração de recorrências:
+
+| Tela                            | Antes | Depois |
+| ------------------------------- | ----: | -----: |
+| Painel                          |    11 |      7 |
+| Repasses                        |    11 |      6 |
+| Rendas                          |    11 |      4 |
+| Ajustes                         |    11 |      3 |
+| Nova despesa                    |    11 |      4 |
+| Editar despesa                  |    11 |      5 |
+| Lista de despesas em mês aberto |    11 |      6 |
+| Recorrências                    |    14 |      3 |
+
+Os testes de integração verificam a contagem das consultas atuais e a equivalência dos cálculos. A lista aplica busca literal por descrição/observações, categoria e pagamento no SQL, e carrega 25 despesas por página. Contagem, total do mês e total filtrado são agregados em uma consulta, em centavos exatos; o cálculo do acerto não usa a página da lista. A ordenação por vencimento, criação e ID evita ambiguidades em empates. A paginação por número usa OFFSET apenas dentro da competência, com página limitada ao total encontrado; reavaliar paginação por cursor se a medição indicar volumes mensais elevados. Os índices existentes por casal/competência são preservados.
+
+Para meses fechados, a lista projeta somente categorias e total do snapshot, sem transferir o JSON completo dos lançamentos. Isso preserva os nomes históricos sem anular o limite de registros carregados pela paginação.

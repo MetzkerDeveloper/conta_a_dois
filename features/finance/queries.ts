@@ -1,18 +1,68 @@
 import 'server-only';
-import { getDb } from '@/db';
-import { requireHousehold } from '@/features/household/queries';
+import { redirect } from 'next/navigation';
+import { getDb, type Database } from '@/db';
+import { requireUser } from '@/features/household/queries';
 import { currentMonth } from './month';
 import { monthSchema } from './schema';
-import { getMonthlyFinance } from './service';
+import { getMonthlyFinance, MissingHouseholdError } from './service';
+import {
+  getFinanceSettings,
+  getFinanceIncomes,
+  getExpenseEditor,
+  getFinanceRecurring,
+  getExpenseList,
+} from './read-models';
 
 export type SearchParams = Record<string, string | string[] | undefined>;
-export async function loadFinance(params: SearchParams) {
-  const { user } = await requireHousehold();
+async function loadForUser<T extends object>(
+  params: SearchParams,
+  read: (db: Database, userId: string, month: string) => Promise<T>,
+) {
+  const user = await requireUser();
   const selected = monthSchema.safeParse(params.mes);
-  const data = await getMonthlyFinance(
-    getDb(),
-    user.id,
-    selected.success ? selected.data : currentMonth(),
+  try {
+    const data = await read(
+      getDb(),
+      user.id,
+      selected.success ? selected.data : currentMonth(),
+    );
+    return { ...data, userId: user.id };
+  } catch (error) {
+    if (error instanceof MissingHouseholdError) redirect('/comecar');
+    throw error;
+  }
+}
+export function loadFinance(params: SearchParams) {
+  return loadForUser(params, (db, userId, month) =>
+    getMonthlyFinance(db, userId, month, 'dashboard'),
   );
-  return { ...data, userId: user.id };
+}
+export function loadSettlements(params: SearchParams) {
+  return loadForUser(params, (db, userId, month) =>
+    getMonthlyFinance(db, userId, month, 'settlements'),
+  );
+}
+export function loadIncomes(params: SearchParams) {
+  return loadForUser(params, getFinanceIncomes);
+}
+export function loadSettings(params: SearchParams) {
+  return loadForUser(params, getFinanceSettings);
+}
+export function loadRecurring(params: SearchParams) {
+  return loadForUser(params, getFinanceRecurring);
+}
+export function loadExpenseEditor(params: SearchParams, id?: string) {
+  return loadForUser(params, (db, userId, month) =>
+    getExpenseEditor(db, userId, month, id),
+  );
+}
+export function loadExpenses(params: SearchParams) {
+  return loadForUser(params, (db, userId, month) =>
+    getExpenseList(db, userId, month, {
+      category: params.categoria,
+      status: params.status,
+      search: params.busca,
+      page: params.pagina,
+    }),
+  );
 }

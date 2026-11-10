@@ -1,8 +1,15 @@
 import Link from 'next/link';
-import { Pencil, Plus, ReceiptText } from 'lucide-react';
+import {
+  Pencil,
+  Plus,
+  ReceiptText,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { FinanceHeader } from '@/features/finance/components/header';
 import { DeleteExpense } from '@/features/finance/components/forms';
-import { loadFinance, type SearchParams } from '@/features/finance/queries';
+import { loadExpenses, type SearchParams } from '@/features/finance/queries';
 import { formatMoney } from '@/lib/money';
 
 export default async function ExpensesPage({
@@ -11,18 +18,19 @@ export default async function ExpensesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const data = await loadFinance(params);
-  const category = typeof params.categoria === 'string' ? params.categoria : '';
-  const status = typeof params.status === 'string' ? params.status : '';
-  const filtered = data.expenses.filter(
-    (expense) =>
-      (!category || expense.categoryId === category) &&
-      (status === 'pending'
-        ? !expense.paidByUserId
-        : status === 'paid'
-          ? !!expense.paidByUserId
-          : true),
-  );
+  const data = await loadExpenses(params);
+  const { category, status, search, page } = data.filters;
+  const hasFilters = !!(category || status || search);
+  const pageLink = (number: number) => {
+    const query = new URLSearchParams({
+      mes: data.month,
+      pagina: String(number),
+    });
+    if (category) query.set('categoria', category);
+    if (status) query.set('status', status);
+    if (search) query.set('busca', search);
+    return `/casal/despesas?${query}`;
+  };
   return (
     <>
       <FinanceHeader
@@ -39,7 +47,7 @@ export default async function ExpensesPage({
           Gerenciar recorrências
         </Link>
         <span className="period-status">
-          {filtered.length} de {data.expenses.length} despesas · total do mês{' '}
+          {data.filteredCount} de {data.totalCount} despesas · total do mês{' '}
           {formatMoney(data.totalCents)}
         </span>
         {!data.period?.closedAt && (
@@ -61,6 +69,21 @@ export default async function ExpensesPage({
       )}
       <form method="get" className="expense-filters" action="/casal/despesas">
         <input type="hidden" name="mes" value={data.month} />
+        <div className="expense-search">
+          <label htmlFor="expense-search">Buscar despesa</label>
+          <div className="search-field">
+            <Search size={17} aria-hidden="true" />
+            <input
+              key={search}
+              id="expense-search"
+              name="busca"
+              type="search"
+              defaultValue={search}
+              placeholder="Descrição ou observações"
+              maxLength={120}
+            />
+          </div>
+        </div>
         <div>
           <label htmlFor="category-filter">Categoria</label>
           <select
@@ -93,7 +116,7 @@ export default async function ExpensesPage({
         <button type="submit" className="button secondary">
           Filtrar
         </button>
-        {(category || status) && (
+        {hasFilters && (
           <Link
             className="text-link"
             href={`/casal/despesas?mes=${data.month}`}
@@ -102,17 +125,26 @@ export default async function ExpensesPage({
           </Link>
         )}
       </form>
+      {hasFilters && (
+        <p className="expense-results" role="status">
+          {data.filteredCount}{' '}
+          {data.filteredCount === 1
+            ? 'despesa encontrada'
+            : 'despesas encontradas'}{' '}
+          · total filtrado {formatMoney(data.filteredCents)}
+        </p>
+      )}
       <section className="panel real-expense-list">
-        {filtered.length === 0 ? (
+        {data.expenses.length === 0 ? (
           <div className="empty-state">
             <ReceiptText size={28} />
             <h2>Nenhuma despesa por aqui.</h2>
             <p>
-              {data.expenses.length
-                ? 'Tente outra categoria ou outro estado de pagamento.'
+              {data.totalCount
+                ? 'Tente outra busca, categoria ou estado de pagamento.'
                 : 'Lance a primeira conta para começar a acompanhar este mês.'}
             </p>
-            {!data.expenses.length && !data.period?.closedAt && (
+            {!data.totalCount && !data.period?.closedAt && (
               <Link
                 className="button primary auth-submit"
                 href={`/casal/despesas/nova?mes=${data.month}`}
@@ -120,7 +152,7 @@ export default async function ExpensesPage({
                 <Plus size={17} /> Lançar primeira despesa
               </Link>
             )}
-            {data.expenses.length > 0 && (category || status) && (
+            {data.totalCount > 0 && hasFilters && (
               <Link
                 className="button secondary auth-submit"
                 href={`/casal/despesas?mes=${data.month}`}
@@ -131,7 +163,7 @@ export default async function ExpensesPage({
           </div>
         ) : (
           <ul className="expense-rows">
-            {filtered.map((expense) => (
+            {data.expenses.map((expense) => (
               <li key={expense.id} data-testid="real-expense-row">
                 <div className="expense-description">
                   <strong>{expense.description}</strong>
@@ -176,6 +208,39 @@ export default async function ExpensesPage({
           </ul>
         )}
       </section>
+      {data.filteredCount > 0 && (
+        <nav className="expense-pagination" aria-label="Paginação de despesas">
+          <p className="muted">
+            Mostrando {(page - 1) * data.pageSize + 1}–
+            {Math.min(page * data.pageSize, data.filteredCount)} de{' '}
+            {data.filteredCount} · Página {page} de {data.pageCount}
+          </p>
+          <div>
+            {page > 1 ? (
+              <Link className="button secondary" href={pageLink(page - 1)}>
+                <ChevronLeft size={17} />
+                Anterior
+              </Link>
+            ) : (
+              <span className="button secondary" aria-disabled="true">
+                <ChevronLeft size={17} />
+                Anterior
+              </span>
+            )}
+            {page < data.pageCount ? (
+              <Link className="button secondary" href={pageLink(page + 1)}>
+                Próxima
+                <ChevronRight size={17} />
+              </Link>
+            ) : (
+              <span className="button secondary" aria-disabled="true">
+                Próxima
+                <ChevronRight size={17} />
+              </span>
+            )}
+          </div>
+        </nav>
+      )}
     </>
   );
 }

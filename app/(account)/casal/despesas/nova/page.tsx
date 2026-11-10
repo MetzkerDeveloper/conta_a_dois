@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { randomUUID } from 'node:crypto';
 import { ExpenseForm } from '@/features/finance/components/forms';
-import { loadFinance, type SearchParams } from '@/features/finance/queries';
+import {
+  loadExpenseEditor,
+  type SearchParams,
+} from '@/features/finance/queries';
 import { monthLabel } from '@/features/finance/month';
 
 export default async function NewExpensePage({
@@ -9,7 +12,7 @@ export default async function NewExpensePage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const data = await loadFinance(await searchParams);
+  const data = await loadExpenseEditor(await searchParams);
   return (
     <section className="panel account-card finance-form-card">
       <p className="eyebrow">{monthLabel(data.month)}</p>

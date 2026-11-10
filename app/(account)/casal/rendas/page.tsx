@@ -1,6 +1,6 @@
 import { FinanceHeader } from '@/features/finance/components/header';
 import { IncomeForm } from '@/features/finance/components/forms';
-import { loadFinance, type SearchParams } from '@/features/finance/queries';
+import { loadIncomes, type SearchParams } from '@/features/finance/queries';
 import { formatMoney } from '@/lib/money';
 
 export default async function IncomesPage({
@@ -8,7 +8,7 @@ export default async function IncomesPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const data = await loadFinance(await searchParams);
+  const data = await loadIncomes(await searchParams);
   const own = data.incomes.find((income) => income.userId === data.userId);
   const previous = data.previousIncomes.find(
     (income) => income.userId === data.userId,
