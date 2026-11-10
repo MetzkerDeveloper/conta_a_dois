@@ -31,6 +31,7 @@ import {
   categorySchema,
   categoryStatusSchema,
   redistributionSchema,
+  payExpenseSchema,
 } from './schema';
 import { shiftMonth, transferDate } from './month';
 
@@ -1074,5 +1075,49 @@ export async function setIncomeRedistribution(
           eq(financialMonths.month, `${input.month}-01`),
         ),
       );
+  });
+}
+
+export async function payExpense(db: Database, userId: string, raw: unknown) {
+  const input = payExpenseSchema.parse(raw);
+  return db.transaction(async (tx) => {
+    const household = await actorHousehold(tx, userId, true);
+    const where = and(
+      eq(expenses.householdId, household.id),
+      eq(expenses.month, `${input.month}-01`),
+      eq(expenses.id, input.id),
+    );
+    const [expense] = await tx.select().from(expenses).where(where);
+    if (!expense) throw unavailable();
+    await openMonth(tx, household, input.month);
+    if (expense.version !== input.version)
+      throw new FinanceError(
+        'Esta despesa mudou. Atualize a lista antes de confirmar o pagamento.',
+      );
+    if (expense.paidByUserId)
+      throw new FinanceError(
+        'Esta despesa já está paga. Atualize a lista para conferir.',
+      );
+    const [payer] = await tx
+      .select({ userId: householdMembers.userId })
+      .from(householdMembers)
+      .where(
+        and(
+          eq(householdMembers.householdId, household.id),
+          eq(householdMembers.userId, input.paidByUserId),
+        ),
+      );
+    if (!payer) throw new FinanceError('Escolha um pagador do seu casal.');
+    const [updated] = await tx
+      .update(expenses)
+      .set({
+        paidByUserId: payer.userId,
+        paidAt: new Date(),
+        version: expense.version + 1,
+        updatedAt: sql`clock_timestamp()`,
+      })
+      .where(and(where, eq(expenses.version, input.version)))
+      .returning();
+    return updated!;
   });
 }

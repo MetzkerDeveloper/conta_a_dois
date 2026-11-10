@@ -1,14 +1,14 @@
 import 'server-only';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getAuth, isAuthConfigured } from '@/lib/auth';
+import { isAuthConfigured } from '@/lib/auth';
+import { getSession } from '@/lib/session';
 import { getDb } from '@/db';
 import { safeReturnPath } from '@/lib/security/redirect';
 import { getHouseholdForUser } from './service';
 
 export async function requireUser(returnPath = '/casal') {
   if (!isAuthConfigured()) redirect('/login');
-  const session = await getAuth().api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session?.user.emailVerified)
     redirect(`/login?next=${encodeURIComponent(safeReturnPath(returnPath))}`);
   return session.user;

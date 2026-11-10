@@ -15,7 +15,7 @@ Você pode lançar despesas antes de completar o casal. O painel guarda as conta
 
 Clique em **Lançar despesa**, informe descrição, valor, vencimento e categoria. Escolha quem pagou ou deixe **Ainda não foi paga**. As observações são opcionais. Use valores como `1.234,56` ou `1234,56`.
 
-O mês escolhido é a competência da despesa, mesmo que o vencimento seja em outro mês. Uma conta sem pagador entra no total e fica pendente. Para marcar como paga, abra **Editar**, selecione o membro que pagou e salve.
+O mês escolhido é a competência da despesa, mesmo que o vencimento seja em outro mês. Uma conta sem pagador entra no total e fica pendente. Para marcar como paga diretamente na lista, clique em **Marcar como paga**, confira **Quem pagou?** e use **Confirmar pagamento**. A lista mantém os filtros e a competência, e o acerto é recalculado. Para corrigir um pagamento, abra **Editar**, ajuste o pagador e salve.
 
 As duas pessoas podem editar ou excluir despesas. A exclusão exige confirmação e não pode ser desfeita. Se a outra pessoa ou outra aba alterou o registro, o aplicativo pede que a tela seja atualizada antes de salvar ou excluir. Reenviar o mesmo formulário de criação não duplica a despesa.
 
@@ -27,7 +27,7 @@ Em **Ajustes → Categorias**, crie categorias próprias, altere nome e cor, ou 
 
 O painel mostra total, já pago, contas pendentes, cota de cada membro e saldo a cobrir ou a receber. O repasse sugerido usa a regra registrada para a competência. Se ainda há contas sem pagamento, o acerto pode mudar ao registrá-las como pagas.
 
-As alterações que você salva atualizam as telas. Para trazer alterações feitas pela outra pessoa ou em outra aba, use **Atualizar** ou recarregue a página.
+As alterações que você salva atualizam as telas. Ao voltar à aba ou à janela do aplicativo, os dados são atualizados automaticamente, sem recarregar a página inteira. A atualização também ocorre ao recuperar a conexão. Se houver campos alterados e ainda não enviados, ela fica pausada para preservar sua edição. Você também pode usar **Atualizar** quando precisar.
 
 Em **Repasses**, quem tem saldo a repassar registra o valor que já enviou pelo banco. O destinatário confirma o recebimento e só então o valor é descontado do saldo. São aceitos envios parciais. Enquanto houver um registro pendente, confirme ou cancele esse registro antes de enviar outro valor. O remetente pode cancelar e o destinatário pode recusar um registro pendente; registros confirmados não podem ser cancelados. O app não movimenta dinheiro nem consulta sua conta bancária.
 

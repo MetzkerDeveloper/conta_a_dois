@@ -1,3 +1,4 @@
+import { AutoRefreshFinance } from '@/features/finance/components/auto-refresh';
 import { FinanceNavigation } from '@/features/finance/components/navigation';
 
 export default function FinanceLayout({
@@ -8,7 +9,10 @@ export default function FinanceLayout({
   return (
     <div className="finance-area">
       <FinanceNavigation />
-      <div className="finance-content">{children}</div>
+      <div className="finance-content">
+        <AutoRefreshFinance />
+        {children}
+      </div>
     </div>
   );
 }

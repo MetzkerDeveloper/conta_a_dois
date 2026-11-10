@@ -15,6 +15,7 @@ import {
   deleteExpense,
   getMonthlyFinance,
   saveIncome,
+  payExpense,
   updateDefaultRule,
   updateExpense,
   saveCategory,
@@ -462,5 +463,124 @@ describe('finanças persistidas e autorizadas por casal', () => {
         active: false,
       }),
     ).rejects.toThrow('ao menos uma categoria ativa');
+  });
+  it('confirma pagamento direto, preserva os demais campos e recalcula o acerto', async () => {
+    const f = await fixture();
+    await confirmIncomes(f);
+    const expense = await createExpense(db, f.owner, {
+      ...f.expense,
+      paidByUserId: null,
+    });
+    expect(
+      (await getMonthlyFinance(db, f.owner, '2026-11')).result!.transfer,
+    ).toBeNull();
+    // A categoria pode estar arquivada: só o pagamento está sendo alterado.
+    await setCategoryActive(db, f.owner, {
+      id: expense.categoryId,
+      active: false,
+    });
+    const updated = await payExpense(db, f.owner, {
+      id: expense.id,
+      month: '2026-11',
+      version: expense.version,
+      paidByUserId: f.partner,
+    });
+    expect(updated).toMatchObject({
+      ...expense,
+      paidByUserId: f.partner,
+      version: expense.version + 1,
+      paidAt: expect.any(Date),
+      updatedAt: expect.any(Date),
+    });
+    const data = await getMonthlyFinance(db, f.partner, '2026-11');
+    expect(data.unpaidCents).toBe(0);
+    expect(data.result!.transfer).toEqual({
+      from: f.owner,
+      to: f.partner,
+      amountCents: 280000,
+    });
+  });
+  it('pagamento direto rejeita casal e pagador externos, mês errado e edições antigas', async () => {
+    const f = await fixture(),
+      other = await fixture();
+    const expense = await createExpense(db, f.owner, {
+      ...f.expense,
+      paidByUserId: null,
+    });
+    const command = {
+      id: expense.id,
+      month: '2026-11',
+      version: expense.version,
+      paidByUserId: f.owner,
+    };
+    await expect(payExpense(db, other.owner, command)).rejects.toThrow(
+      'não está disponível',
+    );
+    await expect(
+      payExpense(db, f.owner, { ...command, paidByUserId: other.owner }),
+    ).rejects.toThrow('pagador do seu casal');
+    await expect(
+      payExpense(db, f.owner, { ...command, month: '2026-12' }),
+    ).rejects.toThrow('não está disponível');
+    const changed = await updateExpense(db, f.partner, {
+      ...f.expense,
+      paidByUserId: null,
+      id: expense.id,
+      version: expense.version,
+      notes: 'Corrigida pelo par',
+    });
+    await expect(payExpense(db, f.owner, command)).rejects.toThrow(
+      'despesa mudou',
+    );
+    expect(
+      (await getMonthlyFinance(db, f.owner, '2026-11')).expenses[0],
+    ).toMatchObject({
+      notes: changed.notes,
+      paidByUserId: null,
+      version: changed.version,
+    });
+  });
+  it('serializa pagamentos simultâneos e bloqueia o pagamento de mês fechado', async () => {
+    const f = await fixture();
+    const expense = await createExpense(db, f.owner, {
+      ...f.expense,
+      paidByUserId: null,
+    });
+    const command = {
+      id: expense.id,
+      month: '2026-11',
+      version: expense.version,
+      paidByUserId: f.owner,
+    };
+    const results = await Promise.allSettled([
+      payExpense(db, f.owner, command),
+      payExpense(db, f.partner, { ...command, paidByUserId: f.partner }),
+    ]);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    const data = await getMonthlyFinance(db, f.owner, '2026-11');
+    expect(data.expenses[0]!.version).toBe(expense.version + 1);
+    const pending = await createExpense(db, f.owner, {
+      ...f.expense,
+      paidByUserId: null,
+      creationKey: randomUUID(),
+    });
+    await db
+      .update(schema.financialMonths)
+      .set({ closedAt: new Date() })
+      .where(
+        and(
+          eq(schema.financialMonths.householdId, f.household.id),
+          eq(schema.financialMonths.month, '2026-11-01'),
+        ),
+      );
+    await expect(
+      payExpense(db, f.partner, {
+        ...command,
+        id: pending.id,
+        version: pending.version,
+      }),
+    ).rejects.toThrow('mês está fechado');
   });
 });
