@@ -5,6 +5,16 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import * as schema from '../db/schema';
 import { createAuth } from '../lib/auth-factory';
+import {
+  createHousehold,
+  createHouseholdInvite,
+  acceptHouseholdInvite,
+} from '../features/household/service';
+import {
+  saveIncome,
+  createExpense,
+  getMonthlyFinance,
+} from '../features/finance/service';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !new URL(connectionString).pathname.endsWith('_test'))
@@ -64,6 +74,8 @@ async function signIn(context: BrowserContext, name: string) {
       sameSite: 'Lax',
     },
   ]);
+  return (await auth.api.getSession({ headers: new Headers({ cookie }) }))!.user
+    .id;
 }
 
 test('cria casal, aceita convite e usa rendas e despesas reais com as duas sessões', async ({
@@ -257,5 +269,100 @@ test('cria casal, aceita convite e usa rendas e despesas reais com as duas sess�
     await expect(partnerPage).toHaveURL(/\/login/);
   } finally {
     await partner.close();
+  }
+});
+
+test('mostra renda somada, aplica sugestão e restaura a divisão pelo painel', async ({
+  page,
+  context,
+  browser,
+}, testInfo) => {
+  const ana = await signIn(context, 'Ana');
+  const partnerContext = await browser.newContext({
+    baseURL,
+    viewport: testInfo.project.use.viewport,
+  });
+  try {
+    const bruno = await signIn(partnerContext, 'Bruno');
+    await createHousehold(db, ana, {
+      name: 'Casa redistribuída',
+      displayName: 'Ana',
+      splitMode: 'equal',
+      higherShareBps: 7000,
+      transferDay: 25,
+      consent: true,
+    });
+    const invite = await createHouseholdInvite(db, ana);
+    await acceptHouseholdInvite(db, bruno, {
+      token: invite.token,
+      displayName: 'Bruno',
+      consent: true,
+    });
+    await saveIncome(db, ana, {
+      month: '2026-11',
+      amount: '1.000,00',
+      version: 0,
+    });
+    await saveIncome(db, bruno, {
+      month: '2026-11',
+      amount: '3.000,00',
+      version: 0,
+    });
+    const data = await getMonthlyFinance(db, ana, '2026-11');
+    await createExpense(db, ana, {
+      month: '2026-11',
+      description: 'Moradia',
+      amount: '3.000,00',
+      dueDate: '2026-11-10',
+      categoryId: data.categories[0]!.id,
+      paidByUserId: bruno,
+      notes: '',
+      creationKey: randomUUID(),
+    });
+    await page.goto('/casal?mes=2026-11');
+    await expect(page.getByTestId('household-income-total')).toContainText(
+      '4.000,00',
+    );
+    await expect(page.getByTestId('month-total')).toContainText('3.000,00');
+    const suggestion = page.getByRole('region', {
+      name: 'Sugestão de redistribuição',
+    });
+    await expect(suggestion).toContainText('500,00');
+    await expect(page.getByTestId('suggested-transfer')).toContainText(
+      '1.500,00',
+    );
+    await suggestion
+      .getByRole('button', { name: 'Aplicar redistribuição' })
+      .click();
+    await expect(suggestion.getByRole('heading')).toHaveText(
+      'Redistribuição aplicada neste mês',
+    );
+    await expect(page.getByTestId('suggested-transfer')).toContainText(
+      '1.000,00',
+    );
+    await page.reload();
+    await expect(
+      suggestion.getByRole('button', { name: 'Restaurar divisão original' }),
+    ).toBeVisible();
+    await expect(page.getByTestId('suggested-transfer')).toContainText(
+      '1.000,00',
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath('painel-redistribuicao.png'),
+      fullPage: true,
+    });
+    await suggestion
+      .getByRole('button', { name: 'Restaurar divisão original' })
+      .click();
+    await expect(page.getByTestId('suggested-transfer')).toContainText(
+      '1.500,00',
+    );
+  } finally {
+    await partnerContext.close();
   }
 });

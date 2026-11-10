@@ -8,7 +8,7 @@ export default function FinanceLayout({
   return (
     <div className="finance-area">
       <FinanceNavigation />
-      {children}
+      <div className="finance-content">{children}</div>
     </div>
   );
 }

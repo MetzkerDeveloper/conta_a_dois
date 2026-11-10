@@ -216,6 +216,9 @@ export const financialMonths = pgTable(
     createdAt: time('created_at').notNull().defaultNow(),
     closedAt: time('closed_at'),
     snapshot: jsonb('snapshot').$type<MonthSnapshot>(),
+    redistributeByIncome: boolean('redistribute_by_income')
+      .notNull()
+      .default(false),
   },
   (table) => [
     primaryKey({ columns: [table.householdId, table.month] }),
