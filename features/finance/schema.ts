@@ -129,3 +129,10 @@ export const redistributionSchema = z.object({
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
   enabled: z.boolean(),
 });
+
+export const payExpenseSchema = z.object({
+  month: monthSchema,
+  id: z.uuid(),
+  version: z.number().int().positive(),
+  paidByUserId: z.string().min(1).max(128),
+});

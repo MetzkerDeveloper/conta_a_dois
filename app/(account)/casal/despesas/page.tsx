@@ -8,6 +8,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { FinanceHeader } from '@/features/finance/components/header';
+import { QuickPayment } from '@/features/finance/components/quick-payment';
 import { DeleteExpense } from '@/features/finance/components/forms';
 import { loadExpenses, type SearchParams } from '@/features/finance/queries';
 import { formatMoney } from '@/lib/money';
@@ -202,6 +203,14 @@ export default async function ExpensesPage({
                     </Link>
                     <DeleteExpense expense={expense} month={data.month} />
                   </div>
+                )}
+                {!data.period?.closedAt && (
+                  <QuickPayment
+                    expense={expense}
+                    month={data.month}
+                    members={data.members}
+                    userId={data.userId}
+                  />
                 )}
               </li>
             ))}

@@ -14,6 +14,8 @@ import {
   saveIncome,
   createExpense,
   getMonthlyFinance,
+  payExpense,
+  updateExpense,
 } from '../features/finance/service';
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -469,4 +471,89 @@ test('busca, filtra e pagina despesas preservando a competência e os totais', a
     .getByRole('link', { name: 'Ver todas as despesas', exact: true })
     .click();
   await expect(rows).toHaveCount(25);
+});
+
+test('confirma pagamento pela lista sem perder filtros e atualiza ao voltar à aba', async ({
+  page,
+  context,
+}) => {
+  const ana = await signIn(context, 'Ana');
+  await createHousehold(db, ana, {
+    name: 'Pagamento rápido',
+    displayName: 'Ana',
+    splitMode: 'equal',
+    higherShareBps: 7000,
+    transferDay: 25,
+    consent: true,
+  });
+  const data = await getMonthlyFinance(db, ana, '2026-11');
+  const fields = {
+    month: '2026-11',
+    description: 'Conta direta',
+    amount: '100,00',
+    dueDate: '2026-11-05',
+    categoryId: data.categories[0]!.id,
+    paidByUserId: null,
+    notes: '',
+    creationKey: randomUUID(),
+  };
+  const first = await createExpense(db, ana, fields);
+  await page.goto('/casal/despesas?mes=2026-11&busca=Conta');
+  const row = page.getByTestId('real-expense-row');
+  await row.getByRole('button', { name: 'Marcar como paga' }).click();
+  await row.getByRole('button', { name: 'Confirmar pagamento' }).click();
+  await expect(row.locator('.paid-label')).toHaveText('Pago por Ana');
+  await expect(page).toHaveURL(/busca=Conta/);
+  await expect(
+    row.getByRole('button', { name: 'Marcar como paga' }),
+  ).toHaveCount(0);
+  const second = await createExpense(db, ana, {
+    ...fields,
+    description: 'Conta externa',
+    creationKey: randomUUID(),
+  });
+  // A alteração no banco representa o pagamento feito em outra sessão.
+  await payExpense(db, ana, {
+    month: '2026-11',
+    id: second.id,
+    version: second.version,
+    paidByUserId: ana,
+  });
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('blur'));
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(page.getByTestId('real-expense-row')).toHaveCount(2);
+  await expect(page.locator('.paid-label')).toHaveCount(2);
+  await expect(page).toHaveURL(/busca=Conta/);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  // Uma atualização externa não pode apagar uma edição ainda não enviada.
+  await page.goto(`/casal/despesas/${first.id}/editar?mes=2026-11`);
+  await page
+    .getByLabel('Descrição', { exact: true })
+    .fill('Minha edição não salva');
+  const current = (await getMonthlyFinance(db, ana, '2026-11')).expenses.find(
+    (item) => item.id === first.id,
+  )!;
+  await updateExpense(db, ana, {
+    ...fields,
+    paidByUserId: ana,
+    id: first.id,
+    version: current.version,
+    description: 'Alterada em outra sessão',
+  });
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(
+    page.getByText(
+      'Atualização automática pausada para preservar os campos que você está editando.',
+    ),
+  ).toBeVisible();
+  await expect(page.getByLabel('Descrição', { exact: true })).toHaveValue(
+    'Minha edição não salva',
+  );
 });

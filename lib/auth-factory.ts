@@ -4,6 +4,7 @@ import { magicLink } from 'better-auth/plugins';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import type { Database } from '@/db';
 import * as schema from '@/db/schema';
+import { authLogger } from './security/session-errors';
 import { loginSchema } from '@/features/auth/schema';
 
 type AuthConfig = {
@@ -17,6 +18,7 @@ type AuthConfig = {
 export function createAuth(config: AuthConfig) {
   return betterAuth({
     appName: 'Contas a Dois',
+    logger: { log: authLogger },
     baseURL: config.baseURL,
     secret: config.secret,
     database: drizzleAdapter(config.db, {

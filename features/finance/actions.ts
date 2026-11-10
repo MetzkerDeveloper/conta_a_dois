@@ -9,6 +9,7 @@ import { consumeActionLimit } from '@/lib/security/action-rate-limit';
 import {
   createExpense,
   deleteExpense,
+  payExpense,
   FinanceError,
   saveIncome,
   setIncomeRedistribution,
@@ -170,4 +171,25 @@ export async function redistributeIncomeAction(
         ? 'Redistribuição aplicada. O acerto do mês foi recalculado.'
         : 'A divisão original deste mês foi restaurada.',
   };
+}
+
+export async function payExpenseAction(
+  _: FinanceState,
+  form: FormData,
+): Promise<FinanceState> {
+  const { user } = await requireHousehold();
+  try {
+    if (!(await consumeActionLimit(getDb(), `finance:${user.id}`, 120, 60)))
+      throw new FinanceError('Aguarde um minuto antes de tentar novamente.');
+    await payExpense(getDb(), user.id, {
+      month: form.get('month'),
+      id: form.get('id'),
+      version: Number(form.get('version')),
+      paidByUserId: form.get('paidByUserId'),
+    });
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath('/casal', 'layout');
+  return { message: 'Pagamento confirmado. O acerto do mês foi atualizado.' };
 }

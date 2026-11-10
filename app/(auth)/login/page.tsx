@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
-import { getAuth, isAuthConfigured } from '@/lib/auth';
+import { isAuthConfigured } from '@/lib/auth';
+import { getSession } from '@/lib/session';
 import { safeReturnPath } from '@/lib/security/redirect';
 import { LoginForm } from '@/features/auth/components/login-form';
 
@@ -15,9 +15,7 @@ export default async function LoginPage({
   const returnPath = safeReturnPath(params.next);
   const configured = isAuthConfigured();
   if (configured) {
-    const session = await getAuth().api.getSession({
-      headers: await headers(),
-    });
+    const session = await getSession();
     if (session?.user.emailVerified) redirect(returnPath);
   }
   return (
