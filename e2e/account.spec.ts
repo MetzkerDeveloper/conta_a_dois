@@ -366,3 +366,107 @@ test('mostra renda somada, aplica sugestão e restaura a divisão pelo painel', 
     await partnerContext.close();
   }
 });
+
+test('busca, filtra e pagina despesas preservando a competência e os totais', async ({
+  page,
+  context,
+}) => {
+  const ana = await signIn(context, 'Ana');
+  const household = await createHousehold(db, ana, {
+    name: 'Lista paginada',
+    displayName: 'Ana',
+    splitMode: 'equal',
+    higherShareBps: 7000,
+    transferDay: 25,
+    consent: true,
+  });
+  const data = await getMonthlyFinance(db, ana, '2026-11');
+  const categoryId = data.categories[0]!.id;
+  await createExpense(db, ana, {
+    month: '2026-11',
+    description: 'Conta energia 00',
+    amount: '10,00',
+    dueDate: '2026-11-05',
+    categoryId,
+    paidByUserId: ana,
+    notes: '',
+    creationKey: randomUUID(),
+  });
+  await db.insert(schema.expenses).values(
+    Array.from({ length: 54 }, (_, offset) => {
+      const i = offset + 1;
+      return {
+        householdId: household.id,
+        month: '2026-11-01',
+        description:
+          i === 54
+            ? 'Água condomínio'
+            : `Conta energia ${String(i).padStart(2, '0')}`,
+        amountCents: 1000,
+        dueDate: '2026-11-05',
+        categoryId,
+        paidByUserId: i % 2 ? null : ana,
+        paidAt: i % 2 ? null : new Date(),
+        createdBy: ana,
+        notes: '',
+        creationKey: randomUUID(),
+      };
+    }),
+  );
+  await page.goto('/casal/despesas?mes=2026-11');
+  const rows = page.getByTestId('real-expense-row');
+  const pagination = page.getByRole('navigation', {
+    name: 'Paginação de despesas',
+  });
+  await expect(rows).toHaveCount(25);
+  await expect(page.locator('.finance-toolbar')).toContainText(
+    '55 de 55 despesas',
+  );
+  await expect(page.locator('.finance-toolbar')).toContainText('550,00');
+  await pagination.getByRole('link', { name: 'Próxima' }).click();
+  await expect(pagination).toContainText('Página 2 de 3');
+  await expect(rows).toHaveCount(25);
+  await pagination.getByRole('link', { name: 'Próxima' }).click();
+  await expect(rows).toHaveCount(5);
+  await expect(pagination).toContainText('Página 3 de 3');
+  await page.getByLabel('Buscar despesa').fill('energia');
+  await page.getByLabel('Pagamento', { exact: true }).selectOption('pending');
+  await page.getByLabel('Categoria', { exact: true }).selectOption(categoryId);
+  await page.getByRole('button', { name: 'Filtrar', exact: true }).click();
+  await expect(rows).toHaveCount(25);
+  await expect(page.locator('.expense-results')).toContainText(
+    '27 despesas encontradas',
+  );
+  await expect(page.locator('.expense-results')).toContainText('270,00');
+  await expect(pagination).toContainText('Página 1 de 2');
+  await pagination.getByRole('link', { name: 'Próxima' }).click();
+  await expect(rows).toHaveCount(2);
+  await expect(page).toHaveURL(/busca=energia/);
+  await expect(page).toHaveURL(/status=pending/);
+  await expect(page).toHaveURL(/mes=2026-11/);
+  await page.reload();
+  await expect(rows).toHaveCount(2);
+  await expect(page.getByLabel('Buscar despesa')).toHaveValue('energia');
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole('link', { name: 'Limpar filtros', exact: true }).click();
+  await expect(rows).toHaveCount(25);
+  await expect(page.getByLabel('Buscar despesa')).toHaveValue('');
+  await expect(pagination).toContainText('Página 1 de 3');
+  await page.getByLabel('Buscar despesa').fill('despesa inexistente');
+  await page.getByRole('button', { name: 'Filtrar', exact: true }).click();
+  await expect(rows).toHaveCount(0);
+  await expect(
+    page.getByRole('heading', { name: 'Nenhuma despesa por aqui.' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Lançar primeira despesa' }),
+  ).toHaveCount(0);
+  await page
+    .getByRole('link', { name: 'Ver todas as despesas', exact: true })
+    .click();
+  await expect(rows).toHaveCount(25);
+});

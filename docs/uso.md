@@ -19,7 +19,7 @@ O mês escolhido é a competência da despesa, mesmo que o vencimento seja em ou
 
 As duas pessoas podem editar ou excluir despesas. A exclusão exige confirmação e não pode ser desfeita. Se a outra pessoa ou outra aba alterou o registro, o aplicativo pede que a tela seja atualizada antes de salvar ou excluir. Reenviar o mesmo formulário de criação não duplica a despesa.
 
-Na lista, filtre por categoria e pagamento. Ao mudar a competência, a tela mostra os lançamentos daquele mês. Os dados continuam salvos depois de sair ou recarregar a página.
+Na lista, busque por descrição ou observações e combine filtros de categoria e pagamento. São exibidas até 25 despesas por página; use **Anterior** e **Próxima** para navegar mantendo os filtros e a competência. O total do mês considera todas as despesas; o total filtrado considera todos os resultados da busca, inclusive de outras páginas. Uma nova busca ou **Limpar filtros** retorna à primeira página. Os dados e filtros da URL continuam disponíveis depois de recarregar a página.
 
 Em **Ajustes → Categorias**, crie categorias próprias, altere nome e cor, ou arquive e reative. Categorias arquivadas continuam identificando despesas antigas e não aparecem em novos lançamentos. Para arquivar uma categoria usada por recorrências ativas, pause essas recorrências primeiro. O casal precisa manter ao menos uma categoria ativa.
 

@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ExpenseForm } from '@/features/finance/components/forms';
-import { loadFinance, type SearchParams } from '@/features/finance/queries';
+import {
+  loadExpenseEditor,
+  type SearchParams,
+} from '@/features/finance/queries';
 import { monthLabel } from '@/features/finance/month';
 
 export default async function EditExpensePage({
@@ -11,9 +14,9 @@ export default async function EditExpensePage({
   searchParams: Promise<SearchParams>;
   params: Promise<{ id: string }>;
 }) {
-  const data = await loadFinance(await searchParams);
   const { id } = await params;
-  const expense = data.expenses.find((item) => item.id === id);
+  const data = await loadExpenseEditor(await searchParams, id);
+  const expense = data.expense;
   if (!expense) notFound();
   return (
     <section className="panel account-card finance-form-card">

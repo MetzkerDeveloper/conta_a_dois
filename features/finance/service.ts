@@ -37,14 +37,31 @@ import { shiftMonth, transferDate } from './month';
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 type Household = typeof households.$inferSelect;
 export class FinanceError extends Error {}
+export class MissingHouseholdError extends FinanceError {}
 const unavailable = () =>
   new FinanceError('Este lançamento não está disponível no seu casal.');
 
-async function actorHousehold(
+export async function actorHousehold(
   tx: Tx,
   userId: string,
   lock: boolean,
 ): Promise<Household> {
+  if (!lock) {
+    const [row] = await tx
+      .select({ household: households })
+      .from(householdMembers)
+      .innerJoin(user, eq(user.id, householdMembers.userId))
+      .innerJoin(households, eq(households.id, householdMembers.householdId))
+      .where(
+        and(eq(householdMembers.userId, userId), eq(user.emailVerified, true)),
+      )
+      .limit(1);
+    if (!row)
+      throw new MissingHouseholdError(
+        'Entre no espaço do casal para continuar.',
+      );
+    return row.household;
+  }
   const [member] = await tx
     .select({ householdId: householdMembers.householdId })
     .from(householdMembers)
@@ -54,7 +71,7 @@ async function actorHousehold(
     )
     .limit(1);
   if (!member)
-    throw new FinanceError('Entre no espaço do casal para continuar.');
+    throw new MissingHouseholdError('Entre no espaço do casal para continuar.');
   const query = tx
     .select()
     .from(households)
@@ -360,15 +377,21 @@ export async function getMonthlyFinance(
   db: Database,
   userId: string,
   rawMonth: string,
+  scope: 'complete' | 'dashboard' | 'settlements' = 'complete',
 ) {
   const month = monthSchema.parse(rawMonth);
-  return db.transaction((tx) => readMonthlyFinance(tx, userId, month), {
+  return db.transaction((tx) => readMonthlyFinance(tx, userId, month, scope), {
     isolationLevel: 'repeatable read',
     accessMode: 'read only',
   });
 }
 
-async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
+async function readMonthlyFinance(
+  tx: Tx,
+  userId: string,
+  month: string,
+  scope: 'complete' | 'dashboard' | 'settlements' = 'complete',
+) {
   const household = await actorHousehold(tx, userId, false);
   const members = await tx
     .select({
@@ -398,15 +421,18 @@ async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
         eq(incomes.month, `${month}-01`),
       ),
     );
-  const previousIncomes = await tx
-    .select()
-    .from(incomes)
-    .where(
-      and(
-        eq(incomes.householdId, household.id),
-        eq(incomes.month, `${shiftMonth(month, -1)}-01`),
-      ),
-    );
+  const previousIncomes =
+    scope === 'complete'
+      ? await tx
+          .select()
+          .from(incomes)
+          .where(
+            and(
+              eq(incomes.householdId, household.id),
+              eq(incomes.month, `${shiftMonth(month, -1)}-01`),
+            ),
+          )
+      : [];
   const monthlyExpenses = await tx
     .select()
     .from(expenses)
@@ -417,11 +443,14 @@ async function readMonthlyFinance(tx: Tx, userId: string, month: string) {
       ),
     )
     .orderBy(asc(expenses.dueDate), asc(expenses.createdAt), asc(expenses.id));
-  const categoryList = await tx
-    .select()
-    .from(categories)
-    .where(eq(categories.householdId, household.id))
-    .orderBy(asc(categories.name));
+  const categoryList =
+    scope !== 'settlements'
+      ? await tx
+          .select()
+          .from(categories)
+          .where(eq(categories.householdId, household.id))
+          .orderBy(asc(categories.name))
+      : [];
   const monthlySettlements = await tx
     .select()
     .from(settlements)

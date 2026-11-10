@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { getDb } from '@/db';
 import { FinanceHeader } from '@/features/finance/components/header';
 import { RecurringForm } from '@/features/finance/components/cycle-forms';
-import { getRecurring } from '@/features/finance/service';
-import { loadFinance, type SearchParams } from '@/features/finance/queries';
+import { loadRecurring, type SearchParams } from '@/features/finance/queries';
 import { formatMoney } from '@/lib/money';
 
 export default async function RecurringPage({
@@ -11,8 +9,8 @@ export default async function RecurringPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const data = await loadFinance(await searchParams);
-  const templates = await getRecurring(getDb(), data.userId);
+  const data = await loadRecurring(await searchParams);
+  const templates = data.templates;
   return (
     <>
       <FinanceHeader

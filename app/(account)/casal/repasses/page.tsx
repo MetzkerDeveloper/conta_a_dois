@@ -5,7 +5,7 @@ import {
   SettlementForm,
   SettlementTransition,
 } from '@/features/finance/components/settlement-forms';
-import { loadFinance, type SearchParams } from '@/features/finance/queries';
+import { loadSettlements, type SearchParams } from '@/features/finance/queries';
 import { formatMoney } from '@/lib/money';
 
 export default async function SettlementsPage({
@@ -13,7 +13,7 @@ export default async function SettlementsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const data = await loadFinance(await searchParams);
+  const data = await loadSettlements(await searchParams);
   const transfer = data.result?.transfer;
   const pending = data.settlements.find((item) => item.status === 'pending');
   const name = (id: string) =>
