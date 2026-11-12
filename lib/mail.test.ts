@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { isValidSender, sendAccessEmail } from './mail';
+import { isValidSender, sendAccessEmail, sendAccountEmail } from './mail';
 
 afterEach(() => vi.restoreAllMocks());
 const data = {
@@ -75,3 +75,26 @@ it('não expõe detalhes de uma exceção de transporte', async () => {
     motivo: 'conexao_com_provedor_falhou',
   });
 });
+
+it.each(['password', 'verification'] as const)(
+  'preserva identidade visual e link escapado no e-mail de %s',
+  async (purpose) => {
+    const send = vi.fn().mockResolvedValue({ error: null });
+    const url = 'https://app.example.test/senha?token=teste&next="seguro"';
+    await sendAccountEmail(send, 'acesso@example.test', {
+      email: data.email,
+      url,
+      purpose,
+    });
+    const html = send.mock.calls[0]![0].html as string;
+    expect(html).toContain('<!doctype html>');
+    expect(html).toContain('contas a dois');
+    expect(html).toContain('background-color:#286351');
+    expect(html).toContain('max-width:560px');
+    expect(html).toContain('10 minutos');
+    expect(html).toContain('token=teste&amp;next=&quot;seguro&quot;');
+    expect(html).toContain(
+      purpose === 'password' ? 'Cadastrar minha senha' : 'Confirmar meu e-mail',
+    );
+  },
+);

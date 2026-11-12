@@ -13,7 +13,7 @@ As etapas de casal e lançamentos financeiros estão implementadas. Os testes us
 
 O código usa a [integração Drizzle/Postgres compatível com Neon](https://orm.drizzle.team/docs/connect-neon) e o [login com e-mail e senha do Better Auth](https://better-auth.com/docs/authentication/email-password). Sessões duram sete dias; links de verificação e de cadastro/recuperação de senha, dez minutos e uso único. Os cookies usam httpOnly e sameSite=lax, com secure quando a origem é HTTPS. Senhas usam o hash do Better Auth. Tokens de convite são armazenados como hash. Links mágicos antigos continuam compatíveis durante a transição.
 
-Aplique as migrations com `npm run db:migrate` antes de publicar esta versão. A migration `0006` cria as rendas fixas a partir da última renda conhecida de cada pessoa e adiciona o campo de extras mensais. A configuração de Resend existente também entrega verificação de e-mail e cadastro/recuperação de senha.
+Aplique as migrations com `npm run db:migrate` antes de publicar esta versão. A migration `0006` cria as rendas fixas a partir da última renda conhecida de cada pessoa e adiciona o campo de extras mensais. A migration `0007` separa os extras em itens e preserva os valores anteriores como um item de renda extra. A configuração de Resend existente também entrega verificação de e-mail e cadastro/recuperação de senha.
 
 Use `sslmode=verify-full` nas conexões Neon para explicitar a verificação completa do certificado e evitar o aviso de mudança de semântica do driver pg. Não desabilite a verificação do certificado para eliminar o aviso.
 

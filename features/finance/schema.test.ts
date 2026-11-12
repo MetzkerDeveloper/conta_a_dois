@@ -64,3 +64,44 @@ describe('competência e validação financeira', () => {
     ).toBe(false);
   });
 });
+
+it('valida valores, limite e identificadores únicos de rendas extras', () => {
+  const entry = {
+    id: '00000000-0000-4000-8000-000000000001',
+    description: '',
+    amount: '0,01',
+  };
+  const data = {
+    month: '2026-11',
+    amount: '0',
+    version: 0,
+    extraEntries: [entry],
+  };
+  expect(incomeSchema.parse(data).extraEntries![0]!.description).toBe(
+    'Renda extra',
+  );
+  expect(
+    incomeSchema.safeParse({ ...data, extraEntries: [entry, entry] }).success,
+  ).toBe(false);
+  expect(
+    incomeSchema.safeParse({
+      ...data,
+      extraEntries: [{ ...entry, amount: '-1' }],
+    }).success,
+  ).toBe(false);
+  expect(
+    incomeSchema.safeParse({
+      ...data,
+      extraEntries: [{ ...entry, amount: '0' }],
+    }).success,
+  ).toBe(false);
+  expect(
+    incomeSchema.safeParse({
+      ...data,
+      extraEntries: Array.from({ length: 51 }, (_, i) => ({
+        ...entry,
+        id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      })),
+    }).success,
+  ).toBe(false);
+});

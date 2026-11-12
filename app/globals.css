@@ -252,6 +252,9 @@ textarea {
   min-height: 100dvh;
 }
 .account-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2006,4 +2009,28 @@ input[type='range'] {
   .quick-payment-form select {
     flex-basis: 100%;
   }
+}
+
+.password-form .button[type='submit'] {
+  margin-top: 24px;
+  margin-bottom: 20px;
+  width: 100%;
+}
+.extra-income-list {
+  display: grid;
+  gap: 16px;
+  margin-block: 16px;
+}
+.extra-income-item {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.extra-income-item legend {
+  padding-inline: 6px;
+  font-weight: 600;
+}
+.extra-income-item .button {
+  margin-top: 12px;
 }

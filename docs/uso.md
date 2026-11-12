@@ -7,7 +7,7 @@ Entre em `/login` com e-mail e senha. Se já usava link mágico e ainda não tem
 1. No painel, escolha a competência no campo de mês e clique em **Ver mês**. As setas permitem voltar ou avançar um mês.
 2. Se faltar uma pessoa, gere o convite no painel ou em Ajustes. O parceiro deve entrar com seu próprio e-mail e aceitar o link.
 3. Em **Rendas**, cada pessoa cadastra sua renda líquida uma vez. Ela é reaproveitada automaticamente nos próximos meses. Se não houve renda, informe `0,00`. A outra pessoa pode ver a renda, mas não editá-la.
-4. Para uma alteração pontual, edite a renda no mês escolhido. Marque **Usar a renda líquida também nos próximos meses** para atualizar os meses seguintes ainda não iniciados. Em **Renda extra neste mês**, informe a soma dos recebimentos adicionais; ela não se repete. Meses já iniciados mantêm seus valores e meses fechados continuam imutáveis.
+4. Para uma alteração pontual, edite a renda no mês escolhido. Marque **Usar a renda líquida também nos próximos meses** para atualizar os meses seguintes ainda não iniciados. Em **Rendas extras do mês**, clique em **Adicionar renda extra** para cada recebimento, informe o valor e uma descrição opcional. Você pode editar ou remover cada item e salvar a renda. Os extras não se repetem. Meses já iniciados mantêm seus valores e meses fechados continuam imutáveis.
 
 Você pode lançar despesas antes de completar o casal. O painel guarda as contas, mas espera dois membros e as duas rendas cadastradas para calcular cotas e repasse.
 
