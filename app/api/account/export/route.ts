@@ -7,6 +7,7 @@ import {
   householdMembers,
   households,
   incomes,
+  incomeDefaults,
   recurringExpenses,
   recurringOccurrences,
   settlements,
@@ -42,6 +43,7 @@ export async function GET() {
           household,
           members,
           incomeRows,
+          incomeDefaultRows,
           expenseRows,
           categoryRows,
           recurringRows,
@@ -55,6 +57,10 @@ export async function GET() {
             .from(householdMembers)
             .where(eq(householdMembers.householdId, householdId)),
           db.select().from(incomes).where(eq(incomes.householdId, householdId)),
+          db
+            .select()
+            .from(incomeDefaults)
+            .where(eq(incomeDefaults.householdId, householdId)),
           db
             .select()
             .from(expenses)
@@ -84,6 +90,7 @@ export async function GET() {
           household: household[0] ?? null,
           members,
           incomes: incomeRows,
+          incomeDefaults: incomeDefaultRows,
           expenses: expenseRows,
           categories: categoryRows,
           recurringExpenses: recurringRows,

@@ -253,6 +253,7 @@ export const incomes = pgTable(
     userId: text('user_id').notNull(),
     month: date('month').notNull(),
     amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+    extraCents: bigint('extra_cents', { mode: 'number' }).notNull().default(0),
     version: integer('version').notNull().default(1),
     confirmedAt: time('confirmed_at').notNull().defaultNow(),
   },
@@ -267,6 +268,10 @@ export const incomes = pgTable(
       'incomes_amount_range',
       sql`${table.amountCents} between 0 and 9007199254740991`,
     ),
+    check(
+      'incomes_extra_range',
+      sql`${table.extraCents} between 0 and ${table.amountCents}`,
+    ),
     check('incomes_version_positive', sql`${table.version} > 0`),
     foreignKey({
       columns: [table.householdId, table.month],
@@ -276,6 +281,29 @@ export const incomes = pgTable(
       columns: [table.householdId, table.userId],
       foreignColumns: [householdMembers.householdId, householdMembers.userId],
     }),
+  ],
+);
+
+export const incomeDefaults = pgTable(
+  'income_defaults',
+  {
+    householdId: uuid('household_id').notNull(),
+    userId: text('user_id').notNull(),
+    effectiveMonth: date('effective_month').notNull(),
+    amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.householdId, table.userId, table.effectiveMonth],
+    }),
+    check(
+      'income_defaults_amount_range',
+      sql`${table.amountCents} between 0 and 9007199254740991`,
+    ),
+    foreignKey({
+      columns: [table.householdId, table.userId],
+      foreignColumns: [householdMembers.householdId, householdMembers.userId],
+    }).onDelete('cascade'),
   ],
 );
 

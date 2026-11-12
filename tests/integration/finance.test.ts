@@ -21,6 +21,8 @@ import {
   saveCategory,
   setCategoryActive,
   saveRecurring,
+  transitionMonth,
+  monthFingerprint,
 } from '@/features/finance/service';
 import { inputMoney } from '@/features/finance/month';
 
@@ -84,8 +86,17 @@ async function confirmIncomes(
   f: Awaited<ReturnType<typeof fixture>>,
   month = '2026-11',
 ) {
-  await saveIncome(db, f.owner, { month, amount: '7.000,00', version: 0 });
-  await saveIncome(db, f.partner, { month, amount: '3.000,00', version: 0 });
+  const data = await getMonthlyFinance(db, f.owner, month);
+  await saveIncome(db, f.owner, {
+    month,
+    amount: '7.000,00',
+    version: data.incomes.find((i) => i.userId === f.owner)?.version ?? 0,
+  });
+  await saveIncome(db, f.partner, {
+    month,
+    amount: '3.000,00',
+    version: data.incomes.find((i) => i.userId === f.partner)?.version ?? 0,
+  });
 }
 
 describe('finanças persistidas e autorizadas por casal', () => {
@@ -107,14 +118,14 @@ describe('finanças persistidas e autorizadas por casal', () => {
     });
     expect(data.expenses[0]!.createdBy).toBe(f.owner);
   });
-  it('não usa renda anterior como confirmada e mantém competências separadas', async () => {
+  it('reaproveita a renda anterior e mantém despesas separadas por competência', async () => {
     const f = await fixture();
     await confirmIncomes(f, '2026-10');
     await createExpense(db, f.owner, f.expense);
     const nov = await getMonthlyFinance(db, f.owner, '2026-11');
-    expect(nov.result).toBeNull();
+    expect(nov.result).not.toBeNull();
     expect(nov.previousIncomes).toHaveLength(2);
-    expect(nov.incomes).toHaveLength(0);
+    expect(nov.incomes).toHaveLength(2);
     expect(
       (await getMonthlyFinance(db, f.owner, '2026-10')).expenses,
     ).toHaveLength(0);
@@ -287,7 +298,7 @@ describe('finanças persistidas e autorizadas por casal', () => {
     await saveIncome(db, f.owner, {
       month: '2026-12',
       amount: '1,00',
-      version: 0,
+      version: next.incomes.find((i) => i.userId === f.owner)!.version,
     });
     expect(
       (await getMonthlyFinance(db, f.owner, '2026-12')).period!.higherShareBps,
@@ -583,4 +594,162 @@ describe('finanças persistidas e autorizadas por casal', () => {
       }),
     ).rejects.toThrow('mês está fechado');
   });
+});
+
+describe('renda fixa automática e extras por competência', () => {
+  it('reaproveita a renda sem confirmação, sem escrever durante leituras, e limita extras ao mês', async () => {
+    const f = await fixture();
+    await saveIncome(db, f.owner, {
+      month: '2026-11',
+      amount: '3.000,00',
+      extra: '500,00',
+      version: 0,
+    });
+    await saveIncome(db, f.partner, {
+      month: '2026-11',
+      amount: '2.000,00',
+      version: 0,
+    });
+    const november = await getMonthlyFinance(db, f.owner, '2026-11');
+    expect(november.incomeTotalCents).toBe(550000);
+    const december = await getMonthlyFinance(db, f.owner, '2026-12');
+    expect(december.incomeTotalCents).toBe(500000);
+    expect(december.result).not.toBeNull();
+    expect(december.incomes.find((i) => i.userId === f.owner)?.extraCents).toBe(
+      0,
+    );
+    expect(
+      await db
+        .select()
+        .from(schema.financialMonths)
+        .where(
+          and(
+            eq(schema.financialMonths.householdId, f.household.id),
+            eq(schema.financialMonths.month, '2026-12-01'),
+          ),
+        ),
+    ).toHaveLength(0);
+    const own = december.incomes.find((i) => i.userId === f.owner)!;
+    await saveIncome(db, f.owner, {
+      month: '2026-12',
+      amount: '3.200,00',
+      extra: '100,00',
+      version: own.version,
+    });
+    const updated = await getMonthlyFinance(db, f.owner, '2026-12');
+    expect(updated.incomeTotalCents).toBe(530000);
+    expect(
+      (await getMonthlyFinance(db, f.owner, '2027-01')).incomeTotalCents,
+    ).toBe(500000);
+    expect(
+      (await getMonthlyFinance(db, f.owner, '2026-11')).incomeTotalCents,
+    ).toBe(550000);
+    await expect(
+      saveIncome(db, f.owner, {
+        month: '2026-12',
+        amount: '9.000,00',
+        version: own.version,
+      }),
+    ).rejects.toThrow('outra aba');
+  });
+  it('atualiza os próximos meses quando solicitado e preserva meses iniciados e mudanças posteriores', async () => {
+    const f = await fixture();
+    const first = await saveIncome(db, f.owner, {
+      month: '2026-11',
+      amount: '3.000,00',
+      version: 0,
+    });
+    await saveIncome(db, f.partner, {
+      month: '2026-11',
+      amount: '2.000,00',
+      version: 0,
+    });
+    await createExpense(db, f.owner, {
+      ...f.expense,
+      month: '2027-01',
+      dueDate: '2027-01-05',
+      creationKey: randomUUID(),
+    });
+    const march = (
+      await getMonthlyFinance(db, f.owner, '2027-03')
+    ).incomes.find((i) => i.userId === f.owner)!;
+    await saveIncome(db, f.owner, {
+      month: '2027-03',
+      amount: '4.000,00',
+      version: march.version,
+      applyFuture: true,
+    });
+    await saveIncome(db, f.owner, {
+      month: '2026-11',
+      amount: '3.500,00',
+      version: first.version,
+      applyFuture: true,
+    });
+    expect(
+      (await getMonthlyFinance(db, f.owner, '2027-01')).incomeTotalCents,
+    ).toBe(500000);
+    expect(
+      (await getMonthlyFinance(db, f.owner, '2027-02')).incomeTotalCents,
+    ).toBe(550000);
+    expect(
+      (await getMonthlyFinance(db, f.owner, '2027-04')).incomeTotalCents,
+    ).toBe(600000);
+    await expect(
+      saveIncome(db, f.owner, {
+        month: '2027-02',
+        amount: '9.000,00',
+        version: 1,
+        expectedAmount: 300000,
+      }),
+    ).rejects.toThrow('outra aba');
+    await expect(
+      saveIncome(db, f.owner, {
+        month: '2027-02',
+        amount: inputMoney(Number.MAX_SAFE_INTEGER),
+        extra: '0,01',
+        version: 1,
+      }),
+    ).rejects.toThrow('limite');
+  });
+});
+
+it('fecha mês sem despesas com rendas automáticas e preserva o snapshot após mudar a renda fixa', async () => {
+  const f = await fixture();
+  const first = await saveIncome(db, f.owner, {
+    month: '2026-11',
+    amount: '3.000,00',
+    version: 0,
+  });
+  await saveIncome(db, f.partner, {
+    month: '2026-11',
+    amount: '2.000,00',
+    version: 0,
+  });
+  const december = await getMonthlyFinance(db, f.owner, '2026-12');
+  await transitionMonth(db, f.owner, {
+    month: '2026-12',
+    action: 'close',
+    acknowledged: true,
+    fingerprint: monthFingerprint(december),
+  });
+  const closed = await getMonthlyFinance(db, f.owner, '2026-12');
+  expect(closed.period?.closedAt).toBeTruthy();
+  expect(closed.period?.snapshot?.data.incomes).toHaveLength(2);
+  await saveIncome(db, f.owner, {
+    month: '2026-11',
+    amount: '4.000,00',
+    version: first.version,
+    applyFuture: true,
+  });
+  expect(
+    (await getMonthlyFinance(db, f.owner, '2026-12')).incomeTotalCents,
+  ).toBe(500000);
+  await expect(
+    saveIncome(db, f.owner, {
+      month: '2026-12',
+      amount: '4.000,00',
+      extra: '500,00',
+      version: 1,
+    }),
+  ).rejects.toThrow('fechado');
 });

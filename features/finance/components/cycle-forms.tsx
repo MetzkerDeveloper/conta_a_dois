@@ -172,7 +172,7 @@ export function MonthForm({
       <p className="muted">
         {closedAt
           ? 'Reabrir libera correções nas rendas, despesas e repasses. A regra da competência é mantida.'
-          : 'Para fechar, confirmem as duas rendas, paguem as contas e concluam os repasses. O fechamento congela os números do período.'}
+          : 'Para fechar, cadastrem as duas rendas, paguem as contas e concluam os repasses. O fechamento congela os números do período.'}
       </p>
       <label className="consent-label">
         <input type="checkbox" name="acknowledged" required />

@@ -16,12 +16,10 @@ import {
   expenses,
   financialMonths,
   householdMembers,
-  incomes,
   recurringExpenses,
 } from '@/db/schema';
-import { actorHousehold, FinanceError } from './service';
+import { actorHousehold, FinanceError, readEffectiveIncomes } from './service';
 import { monthSchema } from './schema';
-import { shiftMonth } from './month';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 const readOptions = {
@@ -102,29 +100,12 @@ export async function getFinanceIncomes(
   return db.transaction(async (tx) => {
     const context = await readContext(tx, userId);
     const period = await readPeriod(tx, context.household.id, month);
-    const records = await tx
-      .select()
-      .from(incomes)
-      .where(
-        and(
-          eq(incomes.householdId, context.household.id),
-          or(
-            eq(incomes.month, `${month}-01`),
-            and(
-              eq(incomes.month, `${shiftMonth(month, -1)}-01`),
-              eq(incomes.userId, userId),
-            ),
-          ),
-        ),
-      );
+    const records = await readEffectiveIncomes(tx, context.household.id, month);
     return {
       ...context,
       month,
       period,
-      incomes: records.filter((income) => income.month === `${month}-01`),
-      previousIncomes: records.filter(
-        (income) => income.month !== `${month}-01`,
-      ),
+      incomes: records,
     };
   }, readOptions);
 }

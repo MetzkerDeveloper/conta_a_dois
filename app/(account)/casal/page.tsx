@@ -72,12 +72,12 @@ export default async function HouseholdPage({
           </strong>
           <small>
             {incomesComplete
-              ? 'As duas rendas confirmadas no mês'
-              : `Total parcial · ${data.incomes.length} de 2 rendas confirmadas`}
+              ? 'As duas rendas disponíveis no mês'
+              : `Total parcial · ${data.incomes.length} de 2 rendas cadastradas`}
           </small>
           {!incomesComplete && (
             <Link className="text-link" href={`/casal/rendas?mes=${month}`}>
-              Confirmar rendas
+              Cadastrar rendas
             </Link>
           )}
         </section>
@@ -208,12 +208,12 @@ export default async function HouseholdPage({
             <h2>
               {members.length < 2
                 ? 'Falta seu par para calcular a divisão.'
-                : 'Confirmem as rendas para calcular o acerto.'}
+                : 'Cadastrem as rendas para calcular o acerto.'}
             </h2>
             <p className="muted">
               {members.length < 2
-                ? 'Você já pode registrar sua renda e as despesas. O cálculo fica disponível depois que a outra pessoa entrar e vocês confirmarem as rendas.'
-                : 'A renda do mês anterior é apenas uma sugestão. Cada pessoa precisa confirmar a própria renda, inclusive quando ela for zero.'}
+                ? 'Você já pode registrar sua renda e as despesas. O cálculo fica disponível depois que a outra pessoa entrar e vocês cadastrarem as rendas.'
+                : 'Cada pessoa cadastra a renda uma vez, inclusive quando ela for zero. Nos próximos meses, ela será reaproveitada automaticamente.'}
             </p>
             <Link
               className="button secondary auth-submit"
@@ -297,7 +297,7 @@ export default async function HouseholdPage({
                   <div>
                     <dt>Renda do mês</dt>
                     <dd>
-                      {income ? formatMoney(income.amountCents) : 'A confirmar'}
+                      {income ? formatMoney(income.amountCents) : 'A cadastrar'}
                     </dd>
                   </div>
                   {result && (

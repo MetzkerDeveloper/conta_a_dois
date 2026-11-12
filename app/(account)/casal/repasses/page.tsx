@@ -40,7 +40,7 @@ export default async function SettlementsPage({
         </p>
         <p className="muted">
           {!data.result
-            ? 'É preciso completar o casal e confirmar as duas rendas do mês.'
+            ? 'É preciso completar o casal e cadastrar as duas rendas.'
             : transfer
               ? `${name(transfer.from)} repassa para ${name(transfer.to)}. Os repasses confirmados já foram descontados.`
               : 'Nenhum valor a repassar neste momento.'}

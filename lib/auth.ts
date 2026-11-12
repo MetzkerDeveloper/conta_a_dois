@@ -2,7 +2,7 @@ import 'server-only';
 import { Resend } from 'resend';
 import { getDb } from '@/db';
 import { createAuth } from './auth-factory';
-import { sendAccessEmail } from './mail';
+import { sendAccessEmail, sendAccountEmail } from './mail';
 
 export function isAuthConfigured(): boolean {
   return [
@@ -28,6 +28,12 @@ export function getAuth() {
     db: getDb(),
     secret: process.env.AUTH_SECRET!,
     baseURL,
+    sendAccountEmail: (data) =>
+      sendAccountEmail(
+        (payload) => resend.emails.send(payload),
+        process.env.RESEND_FROM!,
+        data,
+      ),
     sendMagicLink: (data) =>
       sendAccessEmail(
         (payload) => resend.emails.send(payload),

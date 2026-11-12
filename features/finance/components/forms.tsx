@@ -37,12 +37,10 @@ function Feedback({ state }: { state: { error?: string; message?: string } }) {
 export function IncomeForm({
   month,
   income,
-  suggestion,
   closed,
 }: {
   month: string;
   income?: MonthlyFinance['incomes'][number];
-  suggestion?: number;
   closed: boolean;
 }) {
   const [state, action, pending] = useActionState(saveIncomeAction, {});
@@ -50,6 +48,11 @@ export function IncomeForm({
     <form action={action} className="income-form">
       <input type="hidden" name="month" value={month} />
       <input type="hidden" name="version" value={income?.version ?? 0} />
+      <input
+        type="hidden"
+        name="expectedAmount"
+        value={income?.amountCents ?? ''}
+      />
       <label htmlFor="income-amount">Sua renda líquida (R$)</label>
       <input
         id="income-amount"
@@ -57,24 +60,37 @@ export function IncomeForm({
         inputMode="decimal"
         maxLength={30}
         defaultValue={
-          income
-            ? inputMoney(income.amountCents)
-            : suggestion === undefined
-              ? ''
-              : inputMoney(suggestion)
+          income ? inputMoney(income.amountCents - income.extraCents) : ''
         }
         placeholder="0,00"
         required
         disabled={closed}
       />
-      {!income && suggestion !== undefined && (
-        <p className="form-note muted">
-          Valor sugerido do mês anterior. Confira e confirme a renda deste mês.
-        </p>
-      )}
       <p className="form-note muted">
         Use o valor depois dos descontos. Se não houve renda, informe 0,00. Só
         você pode alterar sua renda.
+      </p>
+      <label htmlFor="income-extra">Renda extra neste mês (R$)</label>
+      <input
+        id="income-extra"
+        name="extra"
+        inputMode="decimal"
+        maxLength={30}
+        defaultValue={inputMoney(income?.extraCents ?? 0)}
+        disabled={closed}
+      />
+      <p className="form-note muted">
+        Some aqui seus recebimentos extras. Este valor vale somente para{' '}
+        {monthLabel(month)} e não se repete.
+      </p>
+      <label>
+        <input type="checkbox" name="applyFuture" disabled={closed} /> Usar a
+        renda líquida também nos próximos meses
+      </label>
+      <p className="form-note muted">
+        A primeira renda é reaproveitada automaticamente. Nas edições, deixe
+        desmarcado para alterar somente este mês. Meses já iniciados mantêm os
+        valores registrados.
       </p>
       <Feedback state={state} />
       <button
@@ -82,7 +98,7 @@ export function IncomeForm({
         type="submit"
         disabled={pending || closed}
       >
-        {pending ? 'Salvando…' : 'Confirmar minha renda'}
+        {pending ? 'Salvando…' : 'Salvar minha renda'}
       </button>
     </form>
   );

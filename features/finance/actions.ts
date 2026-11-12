@@ -50,13 +50,18 @@ export async function saveIncomeAction(
     await saveIncome(getDb(), user.id, {
       month: form.get('month'),
       amount: form.get('amount'),
+      extra: form.get('extra') || '0',
+      expectedAmount: form.get('expectedAmount')
+        ? Number(form.get('expectedAmount'))
+        : undefined,
+      applyFuture: form.get('applyFuture') === 'on',
       version: Number(form.get('version')),
     });
   } catch (error) {
     return failure(error);
   }
   revalidatePath('/casal', 'layout');
-  return { message: 'Sua renda foi confirmada e o painel foi atualizado.' };
+  return { message: 'Sua renda foi salva e o painel foi atualizado.' };
 }
 
 export async function createExpenseAction(

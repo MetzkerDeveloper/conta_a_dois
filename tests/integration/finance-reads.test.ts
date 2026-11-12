@@ -201,12 +201,12 @@ it('reduz as consultas conforme a tela e mantém o cálculo do painel e dos repa
   await saveIncome(db, f.ana, {
     month: '2026-11',
     amount: '1000,00',
-    version: 0,
+    version: 1,
   });
   await saveIncome(db, f.bruno, {
     month: '2026-11',
     amount: '1000,00',
-    version: 0,
+    version: 1,
   });
   const statements: string[] = [];
   const observed = drizzle({
@@ -220,7 +220,7 @@ it('reduz as consultas conforme a tela e mantém o cálculo do painel e dos repa
   });
   const cases = [
     { read: () => getFinanceSettings(observed, f.ana, '2026-11'), count: 3 },
-    { read: () => getFinanceIncomes(observed, f.ana, '2026-11'), count: 4 },
+    { read: () => getFinanceIncomes(observed, f.ana, '2026-11'), count: 5 },
     { read: () => getExpenseEditor(observed, f.ana, '2026-11'), count: 4 },
     {
       read: () => getExpenseEditor(observed, f.ana, '2026-11', f.first.id),
@@ -239,12 +239,10 @@ it('reduz as consultas conforme a tela e mantém o cálculo do painel e dos repa
   }
   const incomeData = await getFinanceIncomes(db, f.ana, '2026-11');
   expect(incomeData.incomes).toHaveLength(2);
-  expect(incomeData.previousIncomes).toHaveLength(1);
-  expect(incomeData.previousIncomes[0]!.userId).toBe(f.ana);
   const complete = await getMonthlyFinance(db, f.ana, '2026-11');
   for (const [scope, queries] of [
-    ['dashboard', 7],
-    ['settlements', 6],
+    ['dashboard', 8],
+    ['settlements', 7],
   ] as const) {
     statements.length = 0;
     const data = await getMonthlyFinance(observed, f.ana, '2026-11', scope);

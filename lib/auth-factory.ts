@@ -11,6 +11,12 @@ type AuthConfig = {
   db: Database;
   secret: string;
   baseURL: string;
+  allowMagicLinkRequests?: boolean;
+  sendAccountEmail?: (data: {
+    email: string;
+    url: string;
+    purpose: 'password' | 'verification';
+  }) => Promise<void>;
   sendMagicLink: (data: { email: string; url: string }) => Promise<void>;
 };
 
@@ -26,10 +32,53 @@ export function createAuth(config: AuthConfig) {
       schema,
       transaction: true,
     }),
-    emailAndPassword: { enabled: false },
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: true,
+      minPasswordLength: 8,
+      maxPasswordLength: 128,
+      resetPasswordTokenExpiresIn: 600,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }) => {
+        if (!config.sendAccountEmail)
+          throw new Error('Entrega de e-mail não configurada.');
+        await config.sendAccountEmail({
+          email: user.email,
+          url,
+          purpose: 'password',
+        });
+      },
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      sendOnSignIn: true,
+      expiresIn: 600,
+      sendVerificationEmail: async ({ user, url }) => {
+        if (!config.sendAccountEmail)
+          throw new Error('Entrega de e-mail não configurada.');
+        await config.sendAccountEmail({
+          email: user.email,
+          url,
+          purpose: 'verification',
+        });
+      },
+    },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === '/sign-up/email') {
+          const parsed = loginSchema.safeParse(ctx.body);
+          if (!parsed.success)
+            throw new APIError('BAD_REQUEST', {
+              message: 'Informe nome e e-mail válidos.',
+            });
+          ctx.body.name = parsed.data.name;
+          ctx.body.email = parsed.data.email;
+        }
         if (ctx.path !== '/sign-in/magic-link') return;
+        if (!config.allowMagicLinkRequests)
+          throw new APIError('FORBIDDEN', {
+            message: 'Entre com e-mail e senha.',
+          });
         if (ctx.headers?.get('origin') !== new URL(config.baseURL).origin) {
           throw new APIError('FORBIDDEN', {
             message: 'Origem de acesso inválida.',
