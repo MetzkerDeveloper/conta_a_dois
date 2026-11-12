@@ -190,23 +190,57 @@ test('cria casal, aceita convite e usa rendas e despesas reais com as duas sess�
       page.getByLabel('Sua renda líquida (R$)', { exact: true }),
     ).toHaveValue('7000,00');
     await page
-      .getByLabel('Renda extra neste mês (R$)', { exact: true })
+      .getByRole('button', { name: 'Adicionar renda extra', exact: true })
+      .click();
+    await page
+      .getByLabel('Valor da renda extra 1 (R$)', { exact: true })
       .fill('500,00');
+    await page
+      .getByLabel('Descrição (opcional)', { exact: true })
+      .fill('Bônus');
+    await page
+      .getByRole('button', { name: 'Adicionar renda extra', exact: true })
+      .click();
+    await page
+      .getByLabel('Valor da renda extra 2 (R$)', { exact: true })
+      .fill('250,00');
     await page
       .getByRole('button', { name: 'Salvar minha renda', exact: true })
       .click();
-    await expect(page.locator('.income-value').first()).toHaveText(/7\.500,00/);
+    await expect(page.locator('.income-value').first()).toHaveText(/7\.750,00/);
     await page.reload();
     await expect(
-      page.getByLabel('Renda extra neste mês (R$)', { exact: true }),
+      page.getByLabel('Valor da renda extra 1 (R$)', { exact: true }),
     ).toHaveValue('500,00');
+    await expect(
+      page.getByLabel('Valor da renda extra 2 (R$)', { exact: true }),
+    ).toHaveValue('250,00');
+    await expect(
+      page.getByLabel('Descrição (opcional)', { exact: true }).first(),
+    ).toHaveValue('Bônus');
+    await page
+      .getByRole('button', { name: 'Remover renda extra 1', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Salvar minha renda', exact: true })
+      .click();
+    await expect(page.locator('.income-value').first()).toHaveText(/7\.250,00/);
+    await page.reload();
+    await expect(
+      page.getByLabel('Valor da renda extra 1 (R$)', { exact: true }),
+    ).toHaveValue('250,00');
+    await expect(
+      page.getByRole('group', { name: 'Renda extra 2', exact: true }),
+    ).toHaveCount(0);
     await page.goto('/casal/rendas?mes=2027-01');
     await expect(
       page.getByLabel('Sua renda líquida (R$)', { exact: true }),
     ).toHaveValue('7000,00');
     await expect(
-      page.getByLabel('Renda extra neste mês (R$)', { exact: true }),
-    ).toHaveValue('0,00');
+      page.getByText('Nenhuma renda extra cadastrada neste mês.', {
+        exact: true,
+      }),
+    ).toBeVisible();
     await page.goto('/casal?mes=2026-11');
     await page
       .getByRole('link', { name: 'Lançar despesa', exact: true })
@@ -229,6 +263,18 @@ test('cria casal, aceita convite e usa rendas e despesas reais com as duas sess�
     await expect(page.getByTestId('suggested-transfer')).toHaveText(
       /1\.200,00/,
     );
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
+    await expect
+      .poll(
+        async () => (await page.locator('.account-header').boundingBox())?.y,
+      )
+      .toBe(0);
+    await expect(
+      page.getByRole('button', { name: 'Sair', exact: true }),
+    ).toBeInViewport();
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: testInfo.outputPath('painel-real.png'),
       fullPage: true,
@@ -624,6 +670,16 @@ test('cadastra nova senha por e-mail e usa a senha atualizada no login', async (
     body: { email, redirectTo: '/senha?next=%2Fcasal' },
   });
   await page.goto(deliveredURL());
+  const confirmationBox = await page
+    .getByLabel('Repita a senha', { exact: true })
+    .boundingBox();
+  const saveBox = await page
+    .getByRole('button', { name: 'Salvar senha', exact: true })
+    .boundingBox();
+  expect(
+    saveBox!.y - (confirmationBox!.y + confirmationBox!.height),
+  ).toBeGreaterThanOrEqual(20);
+
   await page
     .getByLabel('Nova senha', { exact: true })
     .fill('Senha-atualizada-456');

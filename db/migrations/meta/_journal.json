@@ -50,6 +50,13 @@
       "when": 1794507724993,
       "tag": "0006_familiar_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794510335755,
+      "tag": "0007_friendly_trish_tilby",
+      "breakpoints": true
     }
   ]
 }

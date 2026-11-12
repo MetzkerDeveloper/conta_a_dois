@@ -14,6 +14,7 @@ import { inputMoney, monthLabel } from '../month';
 import type { MonthlyFinance } from '../service';
 import { formatMoney } from '@/lib/money';
 import { useHydrated } from '@/lib/use-hydrated';
+import { ExtraIncomeFields } from './extra-income-fields';
 
 type Member = MonthlyFinance['members'][number];
 type Expense = MonthlyFinance['expenses'][number];
@@ -70,19 +71,11 @@ export function IncomeForm({
         Use o valor depois dos descontos. Se não houve renda, informe 0,00. Só
         você pode alterar sua renda.
       </p>
-      <label htmlFor="income-extra">Renda extra neste mês (R$)</label>
-      <input
-        id="income-extra"
-        name="extra"
-        inputMode="decimal"
-        maxLength={30}
-        defaultValue={inputMoney(income?.extraCents ?? 0)}
-        disabled={closed}
+      <ExtraIncomeFields
+        entries={income?.extraEntries ?? []}
+        month={month}
+        disabled={closed || pending}
       />
-      <p className="form-note muted">
-        Some aqui seus recebimentos extras. Este valor vale somente para{' '}
-        {monthLabel(month)} e não se repete.
-      </p>
       <label>
         <input type="checkbox" name="applyFuture" disabled={closed} /> Usar a
         renda líquida também nos próximos meses

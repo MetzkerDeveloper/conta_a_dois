@@ -50,7 +50,17 @@ export async function saveIncomeAction(
     await saveIncome(getDb(), user.id, {
       month: form.get('month'),
       amount: form.get('amount'),
-      extra: form.get('extra') || '0',
+      extraEntries: Array.from(form.entries()).flatMap(([name, id]) => {
+        const match = /^entries\.(\d+)\.id$/.exec(name);
+        if (!match) return [];
+        return [
+          {
+            id,
+            description: form.get(`entries.${match[1]}.description`),
+            amount: form.get(`entries.${match[1]}.amount`),
+          },
+        ];
+      }),
       expectedAmount: form.get('expectedAmount')
         ? Number(form.get('expectedAmount'))
         : undefined,

@@ -29,6 +29,7 @@ export function PasswordForm({ token }: { token: string }) {
     );
   return (
     <form
+      className="password-form"
       onSubmit={handleSubmit(async (data) => {
         setError('');
         try {
@@ -75,7 +76,7 @@ export function PasswordForm({ token }: { token: string }) {
           {error}
         </p>
       )}
-      <button className="button primary" disabled={isSubmitting}>
+      <button type="submit" className="button primary" disabled={isSubmitting}>
         Salvar senha
       </button>
     </form>

@@ -245,6 +245,12 @@ export const financialMonths = pgTable(
   ],
 );
 
+export type ExtraIncomeEntry = {
+  id: string;
+  description: string;
+  amountCents: number;
+};
+
 export const incomes = pgTable(
   'incomes',
   {
@@ -254,6 +260,10 @@ export const incomes = pgTable(
     month: date('month').notNull(),
     amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
     extraCents: bigint('extra_cents', { mode: 'number' }).notNull().default(0),
+    extraEntries: jsonb('extra_entries')
+      .$type<ExtraIncomeEntry[]>()
+      .notNull()
+      .default([]),
     version: integer('version').notNull().default(1),
     confirmedAt: time('confirmed_at').notNull().defaultNow(),
   },

@@ -208,6 +208,7 @@ export async function readEffectiveIncomes(
       month: date,
       amountCents: base.amountCents,
       extraCents: 0,
+      extraEntries: [],
       version: 1,
       confirmedAt: new Date(`${base.effectiveMonth}T00:00:00.000Z`),
     });
@@ -217,7 +218,26 @@ export async function readEffectiveIncomes(
 
 export async function saveIncome(db: Database, userId: string, raw: unknown) {
   const input = incomeSchema.parse(raw);
-  const total = BigInt(input.amount) + BigInt(input.extra);
+  const extraEntries =
+    input.extraEntries?.map((entry) => ({
+      id: entry.id,
+      description: entry.description,
+      amountCents: entry.amount,
+    })) ??
+    (input.extra > 0
+      ? [
+          {
+            id: randomUUID(),
+            description: 'Renda extra',
+            amountCents: input.extra,
+          },
+        ]
+      : []);
+  const extraTotal = extraEntries.reduce(
+    (sum, entry) => sum + BigInt(entry.amountCents),
+    0n,
+  );
+  const total = BigInt(input.amount) + extraTotal;
   if (total > BigInt(Number.MAX_SAFE_INTEGER))
     throw new FinanceError('A renda total ultrapassa o limite suportado.');
   return db.transaction(async (tx) => {
@@ -284,7 +304,8 @@ export async function saveIncome(db: Database, userId: string, raw: unknown) {
         .update(incomes)
         .set({
           amountCents: Number(total),
-          extraCents: input.extra,
+          extraCents: Number(extraTotal),
+          extraEntries,
           version: existing.version + 1,
           confirmedAt: sql`clock_timestamp()`,
         })
@@ -299,7 +320,8 @@ export async function saveIncome(db: Database, userId: string, raw: unknown) {
         userId,
         month: period.month,
         amountCents: Number(total),
-        extraCents: input.extra,
+        extraCents: Number(extraTotal),
+        extraEntries,
       })
       .returning();
     return created!;

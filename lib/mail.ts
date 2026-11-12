@@ -26,13 +26,23 @@ function escapeHtml(value: string): string {
   });
 }
 
-function accessEmailHtml(url: string): string {
+function accessEmailHtml(
+  url: string,
+  content = {
+    preheader:
+      'Seu link seguro para entrar no Contas a Dois. Ele expira em 10 minutos.',
+    eyebrow: 'Acesso à sua conta',
+    title: 'Seu espaço está a um clique.',
+    description: 'Use o botão abaixo para entrar com segurança.',
+    button: 'Entrar no Contas a Dois',
+  },
+): string {
   const safeUrl = escapeHtml(url);
   return `<!doctype html>
 <html lang="pt-BR">
   <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
   <body style="margin:0;padding:0;background-color:#f3f6f4;font-family:Arial,Helvetica,sans-serif;color:#202c2c;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Seu link seguro para entrar no Contas a Dois. Ele expira em 10 minutos.</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(content.preheader)}</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f6f4;">
       <tr><td align="center" style="padding:32px 16px;">
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;border-collapse:separate;border-spacing:0;">
@@ -41,12 +51,12 @@ function accessEmailHtml(url: string): string {
             <p style="margin:5px 0 0;color:#dcebe3;font-size:12px;">Um combinado claro para a vida financeira de vocês.</p>
           </td></tr>
           <tr><td style="padding:34px 28px 30px;background-color:#ffffff;border:1px solid #e1e9e4;border-top:0;">
-            <p style="margin:0 0 12px;color:#286351;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Acesso à sua conta</p>
-            <h1 style="margin:0 0 14px;color:#202c2c;font-size:26px;line-height:1.25;letter-spacing:-0.6px;">Seu espaço está a um clique.</h1>
-            <p style="margin:0 0 24px;color:#50615a;font-size:15px;line-height:1.65;">Use o botão abaixo para entrar com segurança. Você não precisa criar ou lembrar uma senha.</p>
+            <p style="margin:0 0 12px;color:#286351;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">${escapeHtml(content.eyebrow)}</p>
+            <h1 style="margin:0 0 14px;color:#202c2c;font-size:26px;line-height:1.25;letter-spacing:-0.6px;">${escapeHtml(content.title)}</h1>
+            <p style="margin:0 0 24px;color:#50615a;font-size:15px;line-height:1.65;">${escapeHtml(content.description)}</p>
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
               <tr><td align="center" style="border-radius:8px;background-color:#286351;">
-                <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;border:1px solid #286351;border-radius:8px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">Entrar no Contas a Dois</a>
+                <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;border:1px solid #286351;border-radius:8px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">${escapeHtml(content.button)}</a>
               </td></tr>
             </table>
             <p style="margin:0 0 8px;color:#657274;font-size:12px;line-height:1.6;">O link expira em <strong style="color:#202c2c;">10 minutos</strong> e só pode ser usado uma vez.</p>
@@ -145,7 +155,22 @@ export async function sendAccountEmail(
       to: email,
       subject: `${title} · Contas a Dois`,
       text: `${text}\n\n${url}`,
-      html: `<html lang="pt-BR"><body><h1>${title}</h1><p>${text}</p><a href="${escapeHtml(url)}">${title}</a></body></html>`,
+      html: accessEmailHtml(url, {
+        preheader: `${title} com segurança. Seu link expira em 10 minutos.`,
+        eyebrow:
+          purpose === 'password'
+            ? 'Segurança da sua conta'
+            : 'Boas-vindas ao Contas a Dois',
+        title,
+        description:
+          purpose === 'password'
+            ? 'Use o botão abaixo para cadastrar ou redefinir sua senha. Depois, você poderá entrar com seu e-mail e senha.'
+            : 'Confirme seu e-mail para começar a organizar as contas a dois. Depois, entre com a senha que você cadastrou.',
+        button:
+          purpose === 'password'
+            ? 'Cadastrar minha senha'
+            : 'Confirmar meu e-mail',
+      }),
     });
     if (result.error) throw new Error('Falha na entrega.');
   } catch {

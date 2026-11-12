@@ -21,7 +21,32 @@ const amount = z
       return z.NEVER;
     }
   });
+export const extraIncomeEntriesSchema = z
+  .array(
+    z.object({
+      id: z.uuid('Identificador de renda extra inválido.'),
+      description: z
+        .string()
+        .trim()
+        .max(120, 'Use até 120 caracteres na descrição.')
+        .transform((value) => value || 'Renda extra'),
+      amount: amount.pipe(
+        z
+          .number()
+          .int()
+          .positive('O valor da renda extra deve ser maior que zero.'),
+      ),
+    }),
+  )
+  .max(50, 'Cadastre até 50 rendas extras por mês.')
+  .refine(
+    (entries) =>
+      new Set(entries.map((entry) => entry.id)).size === entries.length,
+    'Há rendas extras duplicadas. Atualize a página.',
+  );
+
 export const incomeSchema = z.object({
+  extraEntries: extraIncomeEntriesSchema.optional(),
   expectedAmount: z.number().int().nonnegative().safe().optional(),
   extra: amount.pipe(z.number().int().nonnegative()).default(0),
   applyFuture: z.boolean().default(false),

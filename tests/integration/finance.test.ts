@@ -753,3 +753,56 @@ it('fecha mês sem despesas com rendas automáticas e preserva o snapshot após 
     }),
   ).rejects.toThrow('fechado');
 });
+
+it('persiste múltiplas rendas extras com centavos e remove itens sem repetir nos próximos meses', async () => {
+  const f = await fixture();
+  const firstId = randomUUID(),
+    secondId = randomUUID();
+  const first = await saveIncome(db, f.owner, {
+    month: '2026-11',
+    amount: '3.000,00',
+    version: 0,
+    extraEntries: [
+      { id: firstId, description: 'Bônus', amount: '500,01' },
+      { id: secondId, description: 'Venda', amount: '250,02' },
+    ],
+  });
+  expect(first.extraCents).toBe(75003);
+  expect(first.amountCents).toBe(375003);
+  expect(first.extraEntries.map((e) => e.id)).toEqual([firstId, secondId]);
+  const reloaded = await getMonthlyFinance(db, f.owner, '2026-11');
+  expect(
+    reloaded.incomes.find((i) => i.userId === f.owner)?.extraEntries,
+  ).toEqual(first.extraEntries);
+  const next = await getMonthlyFinance(db, f.owner, '2026-12');
+  expect(next.incomes[0]!.amountCents).toBe(300000);
+  expect(next.incomes[0]!.extraEntries).toEqual([]);
+  const updated = await saveIncome(db, f.owner, {
+    month: '2026-11',
+    amount: '3.000,00',
+    version: first.version,
+    extraEntries: [
+      { id: secondId, description: 'Venda corrigida', amount: '250,03' },
+    ],
+  });
+  expect(updated.amountCents).toBe(325003);
+  expect(updated.extraEntries).toEqual([
+    { id: secondId, description: 'Venda corrigida', amountCents: 25003 },
+  ]);
+  await expect(
+    saveIncome(db, f.owner, {
+      month: '2026-11',
+      amount: '3.000,00',
+      version: first.version,
+      extraEntries: [],
+    }),
+  ).rejects.toThrow('outra aba');
+  const cleared = await saveIncome(db, f.owner, {
+    month: '2026-11',
+    amount: '3.000,00',
+    version: updated.version,
+    extraEntries: [],
+  });
+  expect(cleared.extraCents).toBe(0);
+  expect(cleared.amountCents).toBe(300000);
+});
