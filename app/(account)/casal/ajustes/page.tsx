@@ -24,10 +24,6 @@ export default async function SettingsPage({
         <h2>Regra para competências sem lançamentos</h2>
         <RuleForm household={data.household} members={data.members} />
       </section>
-      <section className="panel account-card">
-        <h2>Categorias</h2>
-        <CategoryManager categories={data.categories} />
-      </section>
       {data.members.length === 1 && <InviteCard />}
       <section className="panel account-card">
         <h2>Demonstração</h2>
