@@ -40,7 +40,7 @@ O fluxo autenticado tem uma suíte separada, que exige `TEST_DATABASE_URL` e ini
 npm run test:e2e:account
 ```
 
-Ela cria sessões reais pelo Better Auth, captura os e-mails em memória e usa duas sessões de navegador para criar o casal, aceitar o convite, confirmar rendas, cadastrar/editar/excluir uma despesa, conferir o repasse e alterar a regra sem recalcular o mês iniciado. Não há rota de bypass de login nem envio externo de e-mail durante os testes.
+Ela cria sessões reais pelo Better Auth, captura os e-mails em memória e usa duas sessões de navegador para entrar com e-mail e senha, criar o casal, aceitar o convite, cadastrar rendas, cadastrar/editar/excluir uma despesa, conferir o repasse e alterar a regra sem recalcular o mês iniciado. Não há rota de bypass de login nem envio externo de e-mail durante os testes.
 
 As rotas `/`, `/despesas`, `/rendas`, `/repasses` e `/ajustes` continuam sendo a demonstração fictícia. Os dados reais ficam exclusivamente em `/casal` e suas subrotas. Em `/casal/repasses`, o remetente registra o envio e o destinatário confirma; somente os confirmados são descontados do saldo.
 

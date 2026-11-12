@@ -22,6 +22,9 @@ const amount = z
     }
   });
 export const incomeSchema = z.object({
+  expectedAmount: z.number().int().nonnegative().safe().optional(),
+  extra: amount.pipe(z.number().int().nonnegative()).default(0),
+  applyFuture: z.boolean().default(false),
   month: monthSchema,
   amount: amount.pipe(
     z.number().int().nonnegative('A renda não pode ser negativa.'),

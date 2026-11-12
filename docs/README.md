@@ -10,4 +10,4 @@ Aplicativo responsivo em pt-BR para um casal registrar rendas líquidas e despes
 
 Stack alvo: Next.js App Router + TypeScript, Tailwind + shadcn/ui, Neon Postgres, Drizzle, Zod, React Hook Form, Resend, Vitest e Playwright. Monólito com Server Components para leitura e Server Actions para mutações.
 
-Decisões implementadas nesta etapa: Better Auth, acesso por link mágico sem senha e modo proporcional disponível no combinado inicial. Google continua opcional e ainda não foi integrado. Nome e identidade finais permanecem em aberto.
+Decisões implementadas nesta etapa: Better Auth, acesso por e-mail e senha, com verificação de e-mail e cadastro de senha por link para contas existentes e modo proporcional disponível no combinado inicial. Google continua opcional e ainda não foi integrado. Nome e identidade finais permanecem em aberto.

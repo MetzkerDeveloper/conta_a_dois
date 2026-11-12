@@ -1,15 +1,15 @@
 # Usar o espaço real do casal
 
-Entre em `/login`. Depois do acesso, o aplicativo abre `/casal`, com as abas Painel, Despesas, Rendas e Ajustes. Essas telas salvam os dados no Neon. A página inicial `/` e suas telas de exemplo continuam sendo uma demonstração e não gravam lançamentos reais.
+Entre em `/login` com e-mail e senha. Se já usava link mágico e ainda não tem senha, informe seu e-mail e clique em **Entrar**: você receberá um link para cadastrá-la. Para recuperar o acesso, use **Cadastrar ou recuperar senha**. Novas contas usam **Criar conta** e precisam verificar o e-mail antes de entrar. Depois do acesso, o aplicativo abre `/casal`, com as abas Painel, Despesas, Rendas e Ajustes. Essas telas salvam os dados no Neon. A página inicial `/` e suas telas de exemplo continuam sendo uma demonstração e não gravam lançamentos reais.
 
 ## Preparar o mês
 
 1. No painel, escolha a competência no campo de mês e clique em **Ver mês**. As setas permitem voltar ou avançar um mês.
 2. Se faltar uma pessoa, gere o convite no painel ou em Ajustes. O parceiro deve entrar com seu próprio e-mail e aceitar o link.
-3. Em **Rendas**, cada pessoa informa e confirma a própria renda líquida daquele mês. Se não houve renda, informe `0,00`. A outra pessoa pode ver a renda, mas não editá-la.
-4. A renda do mês imediatamente anterior pode aparecer como sugestão. Ela só entra no cálculo depois da confirmação.
+3. Em **Rendas**, cada pessoa cadastra sua renda líquida uma vez. Ela é reaproveitada automaticamente nos próximos meses. Se não houve renda, informe `0,00`. A outra pessoa pode ver a renda, mas não editá-la.
+4. Para uma alteração pontual, edite a renda no mês escolhido. Marque **Usar a renda líquida também nos próximos meses** para atualizar os meses seguintes ainda não iniciados. Em **Renda extra neste mês**, informe a soma dos recebimentos adicionais; ela não se repete. Meses já iniciados mantêm seus valores e meses fechados continuam imutáveis.
 
-Você pode lançar despesas antes de completar o casal. O painel guarda as contas, mas espera dois membros e as duas rendas confirmadas para calcular cotas e repasse.
+Você pode lançar despesas antes de completar o casal. O painel guarda as contas, mas espera dois membros e as duas rendas cadastradas para calcular cotas e repasse.
 
 ## Lançar e manter despesas
 
@@ -47,7 +47,7 @@ Abra uma recorrência da lista para editar ou pausar, desmarcando **Recorrência
 
 ## Fechar ou reabrir o mês
 
-No fim do **Painel**, confira os dados, marque a confirmação e clique em **Fechar mês**. As duas rendas devem estar confirmadas, todas as contas pagas e os repasses concluídos. O sistema guarda um snapshot dos dados e bloqueia novos lançamentos e alterações nessa competência. Se os dados mudarem enquanto você confere a tela, atualize antes de fechar.
+No fim do **Painel**, confira os dados, marque a confirmação e clique em **Fechar mês**. As duas rendas devem estar cadastradas, todas as contas pagas e os repasses concluídos. O sistema guarda um snapshot dos dados e bloqueia novos lançamentos e alterações nessa competência. Se os dados mudarem enquanto você confere a tela, atualize antes de fechar.
 
 Para corrigir algo, marque a confirmação e use **Reabrir mês** no mesmo local. Os lançamentos voltam a aceitar alterações; a regra da competência continua preservada. O último snapshot é mantido e atualizado no próximo fechamento.
 

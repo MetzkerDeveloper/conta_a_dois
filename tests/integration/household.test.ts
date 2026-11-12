@@ -1,3 +1,4 @@
+import { preparePasswordSetup } from '@/features/auth/service';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import { Pool } from 'pg';
@@ -227,6 +228,7 @@ describe('Better Auth real com entrega de e-mail capturada em memória', () => {
     let deliveries = 0;
     const auth = createAuth({
       db,
+      allowMagicLinkRequests: true,
       secret: 'test-secret-with-more-than-32-characters-only-local',
       baseURL: 'https://contas.example.test',
       sendMagicLink: async () => {
@@ -254,6 +256,7 @@ describe('Better Auth real com entrega de e-mail capturada em memória', () => {
     let deliveredURL = '';
     const auth = createAuth({
       db,
+      allowMagicLinkRequests: true,
       secret: 'test-secret-with-more-than-32-characters-only-local',
       baseURL: 'https://contas.example.test',
       sendMagicLink: async (message) => {
@@ -294,6 +297,7 @@ describe('Better Auth real com entrega de e-mail capturada em memória', () => {
     let deliveredURL = '';
     const auth = createAuth({
       db,
+      allowMagicLinkRequests: true,
       secret: 'test-secret-with-more-than-32-characters-only-local',
       baseURL: 'http://localhost:3000',
       sendMagicLink: async (message) => {
@@ -368,4 +372,143 @@ describe('Better Auth real com entrega de e-mail capturada em memória', () => {
       .where(eq(schema.user.email, email));
     expect(await getHouseholdForUser(db, signedInUser!.id)).toBeNull();
   });
+});
+
+describe('login com senha e migração das contas existentes', () => {
+  it('envia cadastro de senha à conta legada e permite login com a mesma identidade, rejeitando replay', async () => {
+    const id = randomUUID();
+    const email = `${id}@example.test`;
+    await db
+      .insert(schema.user)
+      .values({ id, email, name: 'Conta existente', emailVerified: true });
+    let resetURL = '';
+    const auth = createAuth({
+      db,
+      secret: 'test-secret-with-more-than-32-characters-only-local',
+      baseURL: 'http://localhost:3000',
+      sendMagicLink: async () => {},
+      sendAccountEmail: async (message) => {
+        resetURL = message.url;
+      },
+    });
+    const requestReset = async (address: string) =>
+      auth.api.requestPasswordReset({
+        body: { email: address, redirectTo: '/senha' },
+      });
+    expect(await preparePasswordSetup(db, email, requestReset)).toBe(true);
+    expect(resetURL).toContain('/reset-password/');
+    const response = await auth.handler(new Request(resetURL));
+    const token = new URL(
+      response.headers.get('location')!,
+      'http://localhost:3000',
+    ).searchParams.get('token')!;
+    expect(token).toBeTruthy();
+    await expect(
+      auth.api.resetPassword({ body: { token, newPassword: 'curta' } }),
+    ).rejects.toThrow();
+    await auth.api.resetPassword({
+      body: { token, newPassword: 'Uma-senha-forte-123' },
+    });
+    await expect(
+      auth.api.resetPassword({
+        body: { token, newPassword: 'Outra-senha-123' },
+      }),
+    ).rejects.toThrow();
+    const result = await auth.api.signInEmail({
+      body: { email, password: 'Uma-senha-forte-123' },
+    });
+    expect(result.user.id).toBe(id);
+    expect(await preparePasswordSetup(db, email, requestReset)).toBe(false);
+    await expect(
+      auth.api.signInEmail({ body: { email, password: 'senha-incorreta' } }),
+    ).rejects.toThrow();
+    const [credential] = await db
+      .select()
+      .from(schema.account)
+      .where(eq(schema.account.userId, id));
+    expect(credential!.password).not.toBe('Uma-senha-forte-123');
+    expect(credential!.providerId).toBe('credential');
+  });
+  it('exige verificação do e-mail de uma conta nova e permite recuperação posterior', async () => {
+    const email = `${randomUUID()}@example.test`;
+    let deliveredURL = '';
+    const auth = createAuth({
+      db,
+      secret: 'test-secret-with-more-than-32-characters-only-local',
+      baseURL: 'http://localhost:3000',
+      sendMagicLink: async () => {},
+      sendAccountEmail: async (message) => {
+        deliveredURL = message.url;
+      },
+    });
+    const created = await auth.api.signUpEmail({
+      body: {
+        email,
+        name: 'Nova pessoa',
+        password: 'Senha-nova-123',
+        callbackURL: '/casal',
+      },
+    });
+    expect(created.user.emailVerified).toBe(false);
+    expect(created.token).toBeNull();
+    const verification = deliveredURL;
+    await expect(
+      auth.api.signInEmail({ body: { email, password: 'Senha-nova-123' } }),
+    ).rejects.toThrow();
+    await auth.handler(new Request(verification));
+    expect(
+      (
+        await auth.api.signInEmail({
+          body: { email, password: 'Senha-nova-123' },
+        })
+      ).user.emailVerified,
+    ).toBe(true);
+    await auth.api.requestPasswordReset({
+      body: { email, redirectTo: '/senha' },
+    });
+    const response = await auth.handler(new Request(deliveredURL));
+    const token = new URL(
+      response.headers.get('location')!,
+      'http://localhost:3000',
+    ).searchParams.get('token')!;
+    await auth.api.resetPassword({
+      body: { token, newPassword: 'Senha-alterada-456' },
+    });
+    await expect(
+      auth.api.signInEmail({ body: { email, password: 'Senha-nova-123' } }),
+    ).rejects.toThrow();
+    expect(
+      (
+        await auth.api.signInEmail({
+          body: { email, password: 'Senha-alterada-456' },
+        })
+      ).user.id,
+    ).toBe(created.user.id);
+  });
+});
+
+it('desativa novos pedidos de link mágico no acesso padrão', async () => {
+  await db.delete(schema.rateLimit);
+  const auth = createAuth({
+    db,
+    secret: 'test-secret-with-more-than-32-characters-only-local',
+    baseURL: 'http://localhost:3000',
+    sendMagicLink: async () => {
+      throw new Error('Não deve enviar');
+    },
+  });
+  const response = await auth.handler(
+    new Request('http://localhost:3000/api/auth/sign-in/magic-link', {
+      method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: `${randomUUID()}@example.test`,
+        name: 'Ana',
+      }),
+    }),
+  );
+  expect(response.status).toBe(403);
 });

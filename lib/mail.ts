@@ -125,3 +125,30 @@ export async function sendAccessEmail(
     throw new Error('Não foi possível enviar o e-mail de acesso.');
   }
 }
+
+export async function sendAccountEmail(
+  send: SendEmail,
+  from: string,
+  {
+    email,
+    url,
+    purpose,
+  }: { email: string; url: string; purpose: 'password' | 'verification' },
+): Promise<void> {
+  if (!isValidSender(from)) throw new Error('Remetente inválido.');
+  const title =
+    purpose === 'password' ? 'Cadastre sua senha' : 'Confirme seu e-mail';
+  const text = `${title} no Contas a Dois. O link vale por 10 minutos e só pode ser usado uma vez. Se não solicitou, ignore esta mensagem.`;
+  try {
+    const result = await send({
+      from,
+      to: email,
+      subject: `${title} · Contas a Dois`,
+      text: `${text}\n\n${url}`,
+      html: `<html lang="pt-BR"><body><h1>${title}</h1><p>${text}</p><a href="${escapeHtml(url)}">${title}</a></body></html>`,
+    });
+    if (result.error) throw new Error('Falha na entrega.');
+  } catch {
+    throw new Error('Não foi possível enviar o e-mail.');
+  }
+}

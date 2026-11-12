@@ -35,32 +35,43 @@ test.afterAll(async () => {
   await pool.end();
 });
 
-// Usa a mesma configuração de auth do app, sem rota de bypass ou envio real.
-// O login por link e seu cookie são emitidos pelo Better Auth sobre o banco de teste.
-async function signIn(context: BrowserContext, name: string) {
+// Usa o Better Auth real e captura a verificação de e-mail em memória.
+async function credentials(name: string) {
   let url = '';
+  const email = `${randomUUID()}@example.test`;
+  const password = 'Senha-de-teste-123';
   const auth = createAuth({
     db,
     baseURL,
     secret: 'e2e-local-secret-with-more-than-32-characters',
-    sendMagicLink: async (message) => {
+    sendMagicLink: async () => {},
+    sendAccountEmail: async (message) => {
       url = message.url;
     },
   });
-  const result = await auth.handler(
-    new Request(`${baseURL}/api/auth/sign-in/magic-link`, {
+  const created = await auth.api.signUpEmail({
+    body: { email, password, name },
+  });
+  await auth.handler(new Request(url));
+  return {
+    auth,
+    email,
+    password,
+    userId: created.user.id,
+    deliveredURL: () => url,
+  };
+}
+async function signIn(context: BrowserContext, name: string) {
+  const { auth, email, password, userId } = await credentials(name);
+  const response = await auth.handler(
+    new Request(`${baseURL}/api/auth/sign-in/email`, {
       method: 'POST',
       headers: { origin: baseURL, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        email: `${randomUUID()}@example.test`,
-        name,
-        callbackURL: '/casal',
-      }),
+      body: JSON.stringify({ email, password }),
     }),
   );
-  expect(result.status).toBe(200);
-  const verified = await auth.handler(new Request(url));
-  const cookie = verified.headers
+  expect(response.status).toBe(200);
+  const cookie = response.headers
     .getSetCookie()
     .find((value) => value.startsWith('better-auth.session_token='))!
     .split(';')[0]!;
@@ -76,9 +87,34 @@ async function signIn(context: BrowserContext, name: string) {
       sameSite: 'Lax',
     },
   ]);
-  return (await auth.api.getSession({ headers: new Headers({ cookie }) }))!.user
-    .id;
+  return userId;
 }
+
+test('entra pela tela de e-mail e senha e exibe recuperação sem exigir senha', async ({
+  page,
+}) => {
+  const { email, password } = await credentials('Ana');
+  await page.goto('/login');
+  await page
+    .getByRole('button', { name: 'Cadastrar ou recuperar senha', exact: true })
+    .click();
+  await expect(page.getByLabel('Senha', { exact: true })).not.toBeVisible();
+  await page
+    .getByRole('button', { name: 'Voltar ao login', exact: true })
+    .click();
+  await page.getByLabel('E-mail', { exact: true }).fill(email);
+  await page.getByLabel('Senha', { exact: true }).fill(password);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page).toHaveURL(/\/comecar$/, { timeout: 30_000 });
+  await expect(
+    page.getByRole('heading', { name: 'O espaço de vocês.' }),
+  ).toBeVisible();
+});
 
 test('cria casal, aceita convite e usa rendas e despesas reais com as duas sessões', async ({
   page,
@@ -132,23 +168,45 @@ test('cria casal, aceita convite e usa rendas e despesas reais com as duas sess�
       .getByLabel('Sua renda líquida (R$)', { exact: true })
       .fill('7.000,00');
     await page
-      .getByRole('button', { name: 'Confirmar minha renda', exact: true })
+      .getByRole('button', { name: 'Salvar minha renda', exact: true })
       .click();
     await expect(
-      page.getByText('Renda confirmada nesta competência.', { exact: true }),
+      page.getByText('Renda disponível nesta competência.', { exact: true }),
     ).toBeVisible();
     await partnerPage.goto('/casal/rendas?mes=2026-11');
     await partnerPage
       .getByLabel('Sua renda líquida (R$)', { exact: true })
       .fill('3.000,00');
     await partnerPage
-      .getByRole('button', { name: 'Confirmar minha renda', exact: true })
+      .getByRole('button', { name: 'Salvar minha renda', exact: true })
       .click();
     await expect(
-      partnerPage.getByText('Renda confirmada nesta competência.', {
+      partnerPage.getByText('Renda disponível nesta competência.', {
         exact: true,
       }),
     ).toHaveCount(2);
+    await page.goto('/casal/rendas?mes=2026-12');
+    await expect(
+      page.getByLabel('Sua renda líquida (R$)', { exact: true }),
+    ).toHaveValue('7000,00');
+    await page
+      .getByLabel('Renda extra neste mês (R$)', { exact: true })
+      .fill('500,00');
+    await page
+      .getByRole('button', { name: 'Salvar minha renda', exact: true })
+      .click();
+    await expect(page.locator('.income-value').first()).toHaveText(/7\.500,00/);
+    await page.reload();
+    await expect(
+      page.getByLabel('Renda extra neste mês (R$)', { exact: true }),
+    ).toHaveValue('500,00');
+    await page.goto('/casal/rendas?mes=2027-01');
+    await expect(
+      page.getByLabel('Sua renda líquida (R$)', { exact: true }),
+    ).toHaveValue('7000,00');
+    await expect(
+      page.getByLabel('Renda extra neste mês (R$)', { exact: true }),
+    ).toHaveValue('0,00');
     await page.goto('/casal?mes=2026-11');
     await page
       .getByRole('link', { name: 'Lançar despesa', exact: true })
@@ -238,7 +296,7 @@ test('cria casal, aceita convite e usa rendas e despesas reais com as duas sess�
     await expect(partnerPage.getByTestId('suggested-transfer')).toHaveText(
       /2\.800,01/,
     );
-    await partnerPage.goto('/casal/despesas/nova?mes=2026-12');
+    await partnerPage.goto('/casal/despesas/nova?mes=2027-01');
     await expect(
       partnerPage.getByLabel('Quem pagou?', { exact: true }),
     ).not.toHaveValue('');
@@ -556,4 +614,36 @@ test('confirma pagamento pela lista sem perder filtros e atualiza ao voltar à a
   await expect(page.getByLabel('Descrição', { exact: true })).toHaveValue(
     'Minha edição não salva',
   );
+});
+
+test('cadastra nova senha por e-mail e usa a senha atualizada no login', async ({
+  page,
+}) => {
+  const { auth, email, deliveredURL } = await credentials('Ana');
+  await auth.api.requestPasswordReset({
+    body: { email, redirectTo: '/senha?next=%2Fcasal' },
+  });
+  await page.goto(deliveredURL());
+  await page
+    .getByLabel('Nova senha', { exact: true })
+    .fill('Senha-atualizada-456');
+  await page
+    .getByLabel('Repita a senha', { exact: true })
+    .fill('Senha-diferente-789');
+  await page.getByRole('button', { name: 'Salvar senha', exact: true }).click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'As senhas devem ser iguais.' }),
+  ).toBeVisible();
+  await page
+    .getByLabel('Repita a senha', { exact: true })
+    .fill('Senha-atualizada-456');
+  await page.getByRole('button', { name: 'Salvar senha', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Senha cadastrada.');
+  await page
+    .getByRole('link', { name: 'Voltar ao login', exact: true })
+    .click();
+  await page.getByLabel('E-mail', { exact: true }).fill(email);
+  await page.getByLabel('Senha', { exact: true }).fill('Senha-atualizada-456');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page).toHaveURL(/\/comecar$/, { timeout: 30_000 });
 });

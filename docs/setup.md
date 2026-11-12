@@ -11,7 +11,9 @@ As etapas de casal e lançamentos financeiros estão implementadas. Os testes us
 5. Configure `RESEND_API_KEY` e `RESEND_FROM` com um remetente autorizado no Resend. O link de acesso é enviado somente após uma solicitação do usuário. E-mails de convite não são enviados: a pessoa copia e compartilha o link.
 6. Execute `npm run db:migrate` e depois `npm run dev`. Reinicie o servidor após alterar as variáveis.
 
-O código usa a [integração Drizzle/Postgres compatível com Neon](https://orm.drizzle.team/docs/connect-neon) e o [plugin de link mágico do Better Auth](https://better-auth.com/docs/plugins/magic-link). Sessões duram sete dias; links de acesso, dez minutos e uso único. Os cookies usam httpOnly e sameSite=lax, com secure quando a origem é HTTPS. Tokens de acesso e de convite são armazenados como hash.
+O código usa a [integração Drizzle/Postgres compatível com Neon](https://orm.drizzle.team/docs/connect-neon) e o [login com e-mail e senha do Better Auth](https://better-auth.com/docs/authentication/email-password). Sessões duram sete dias; links de verificação e de cadastro/recuperação de senha, dez minutos e uso único. Os cookies usam httpOnly e sameSite=lax, com secure quando a origem é HTTPS. Senhas usam o hash do Better Auth. Tokens de convite são armazenados como hash. Links mágicos antigos continuam compatíveis durante a transição.
+
+Aplique as migrations com `npm run db:migrate` antes de publicar esta versão. A migration `0006` cria as rendas fixas a partir da última renda conhecida de cada pessoa e adiciona o campo de extras mensais. A configuração de Resend existente também entrega verificação de e-mail e cadastro/recuperação de senha.
 
 Use `sslmode=verify-full` nas conexões Neon para explicitar a verificação completa do certificado e evitar o aviso de mudança de semântica do driver pg. Não desabilite a verificação do certificado para eliminar o aviso.
 

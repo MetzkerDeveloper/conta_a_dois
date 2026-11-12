@@ -12,7 +12,8 @@ Entidades previstas:
 | households         | Nome, modo, percentual, desempate, pagador responsável, dia de repasse 1–31                                                 |
 | household_members  | household_id, user_id, display_name; par único; limite 2 sob transação                                                      |
 | invites            | household_id, token_hash, expires_at, accepted_at; uso único, validade 7 dias                                               |
-| incomes            | household_id, user_id, mês no dia 1, amount_cents; membro/mês único                                                         |
+| income_defaults    | household_id, user_id, effective_month, amount_cents; renda fixa com vigência mensal                                        |
+| incomes            | household_id, user_id, mês no dia 1, amount_cents (fixa + extras), extra_cents; membro/mês único                            |
 | categories         | household_id, nome, cor                                                                                                     |
 | recurring_expenses | household_id, descrição, valor, dia, categoria, pagador padrão, ativo                                                       |
 | expenses           | household_id, descrição, valor, vencimento, competência, categoria, pagador opcional, paid_at, criador, recurring_id, notas |

@@ -8,6 +8,7 @@ import {
   householdMembers,
   households,
   incomes,
+  incomeDefaults,
   settlements,
   user,
   recurringExpenses,
@@ -110,6 +111,9 @@ async function openMonth(tx: Tx, household: Household, month: string) {
     throw new FinanceError(
       'Este mês está fechado. Reabra o período antes de alterar lançamentos.',
     );
+  const effective = await readEffectiveIncomes(tx, household.id, month);
+  if (effective.length)
+    await tx.insert(incomes).values(effective).onConflictDoNothing();
   return period!;
 }
 
@@ -171,11 +175,71 @@ async function checkTotal(
     );
 }
 
+/** Leituras projetam a renda fixa sem escrever; mutações congelam os valores no mês. */
+export async function readEffectiveIncomes(
+  tx: Tx,
+  householdId: string,
+  month: string,
+) {
+  const date = `${month}-01`;
+  const records = await tx
+    .select()
+    .from(incomes)
+    .where(and(eq(incomes.householdId, householdId), eq(incomes.month, date)));
+  const defaults = await tx
+    .selectDistinctOn([incomeDefaults.userId])
+    .from(incomeDefaults)
+    .where(
+      and(
+        eq(incomeDefaults.householdId, householdId),
+        lte(incomeDefaults.effectiveMonth, date),
+      ),
+    )
+    .orderBy(incomeDefaults.userId, desc(incomeDefaults.effectiveMonth));
+  for (const base of defaults) {
+    if (records.some((row) => row.userId === base.userId)) continue;
+    const hash = createHash('sha256')
+      .update(`${householdId}:${base.userId}:${date}`)
+      .digest('hex');
+    records.push({
+      id: `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`,
+      householdId,
+      userId: base.userId,
+      month: date,
+      amountCents: base.amountCents,
+      extraCents: 0,
+      version: 1,
+      confirmedAt: new Date(`${base.effectiveMonth}T00:00:00.000Z`),
+    });
+  }
+  return records.sort((a, b) => a.userId.localeCompare(b.userId));
+}
+
 export async function saveIncome(db: Database, userId: string, raw: unknown) {
   const input = incomeSchema.parse(raw);
+  const total = BigInt(input.amount) + BigInt(input.extra);
+  if (total > BigInt(Number.MAX_SAFE_INTEGER))
+    throw new FinanceError('A renda total ultrapassa o limite suportado.');
   return db.transaction(async (tx) => {
     const household = await actorHousehold(tx, userId, true);
+    if (input.expectedAmount !== undefined) {
+      const current = (
+        await readEffectiveIncomes(tx, household.id, input.month)
+      ).find((row) => row.userId === userId);
+      if (current?.amountCents !== input.expectedAmount)
+        throw new FinanceError(
+          'Sua renda foi alterada em outra aba. Atualize a página antes de salvar.',
+        );
+    }
     const period = await openMonth(tx, household, input.month);
+    const effective = await readEffectiveIncomes(tx, household.id, input.month);
+    const householdTotal = effective
+      .filter((row) => row.userId !== userId)
+      .reduce((sum, row) => sum + BigInt(row.amountCents), total);
+    if (householdTotal > BigInt(Number.MAX_SAFE_INTEGER))
+      throw new FinanceError(
+        'A renda total do casal ultrapassa o limite suportado.',
+      );
     const where = and(
       eq(incomes.householdId, household.id),
       eq(incomes.userId, userId),
@@ -186,11 +250,41 @@ export async function saveIncome(db: Database, userId: string, raw: unknown) {
       throw new FinanceError(
         'Sua renda foi alterada em outra aba. Atualize a página antes de salvar.',
       );
+    const [base] = await tx
+      .select()
+      .from(incomeDefaults)
+      .where(
+        and(
+          eq(incomeDefaults.householdId, household.id),
+          eq(incomeDefaults.userId, userId),
+          lte(incomeDefaults.effectiveMonth, period.month),
+        ),
+      )
+      .limit(1);
+    if (!base || input.applyFuture) {
+      await tx
+        .insert(incomeDefaults)
+        .values({
+          householdId: household.id,
+          userId,
+          effectiveMonth: period.month,
+          amountCents: input.amount,
+        })
+        .onConflictDoUpdate({
+          target: [
+            incomeDefaults.householdId,
+            incomeDefaults.userId,
+            incomeDefaults.effectiveMonth,
+          ],
+          set: { amountCents: input.amount },
+        });
+    }
     if (existing) {
       const [updated] = await tx
         .update(incomes)
         .set({
-          amountCents: input.amount,
+          amountCents: Number(total),
+          extraCents: input.extra,
           version: existing.version + 1,
           confirmedAt: sql`clock_timestamp()`,
         })
@@ -204,7 +298,8 @@ export async function saveIncome(db: Database, userId: string, raw: unknown) {
         householdId: household.id,
         userId,
         month: period.month,
-        amountCents: input.amount,
+        amountCents: Number(total),
+        extraCents: input.extra,
       })
       .returning();
     return created!;
@@ -413,15 +508,7 @@ async function readMonthlyFinance(
       ),
     );
   const rule = period ?? household;
-  const monthlyIncomes = await tx
-    .select()
-    .from(incomes)
-    .where(
-      and(
-        eq(incomes.householdId, household.id),
-        eq(incomes.month, `${month}-01`),
-      ),
-    );
+  const monthlyIncomes = await readEffectiveIncomes(tx, household.id, month);
   const previousIncomes =
     scope === 'complete'
       ? await tx
@@ -986,7 +1073,7 @@ export async function transitionMonth(
       throw new FinanceError('Este mês já está fechado.');
     if (!data.result)
       throw new FinanceError(
-        'Confirme as rendas dos dois membros antes de fechar o mês.',
+        'Cadastre as rendas dos dois membros antes de fechar o mês.',
       );
     if (data.unpaidCents > 0)
       throw new FinanceError(
@@ -1003,6 +1090,7 @@ export async function transitionMonth(
       throw new FinanceError(
         'Os dados do mês mudaram. Atualize e confira antes de fechar.',
       );
+    await openMonth(tx, household, input.month);
     const now = new Date();
     const snapshot = {
       version: 1 as const,

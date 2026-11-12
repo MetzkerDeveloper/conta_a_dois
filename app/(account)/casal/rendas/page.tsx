@@ -10,14 +10,11 @@ export default async function IncomesPage({
 }) {
   const data = await loadIncomes(await searchParams);
   const own = data.incomes.find((income) => income.userId === data.userId);
-  const previous = data.previousIncomes.find(
-    (income) => income.userId === data.userId,
-  );
   return (
     <>
       <FinanceHeader
         title="Rendas do mês"
-        description="Cada pessoa confirma sua renda líquida. Os valores ficam visíveis para o casal."
+        description="A renda fixa se repete automaticamente. Ajustes e extras podem valer só neste mês."
         month={data.month}
         path="/casal/rendas"
       />
@@ -33,24 +30,23 @@ export default async function IncomesPage({
                 {member.userId === data.userId ? ' · Você' : ''}
               </h2>
               <p className="income-value">
-                {income ? formatMoney(income.amountCents) : 'A confirmar'}
+                {income ? formatMoney(income.amountCents) : 'A cadastrar'}
               </p>
               <p role="status" className="muted">
                 {income
-                  ? 'Renda confirmada nesta competência.'
-                  : 'Aguardando confirmação para este mês.'}
+                  ? 'Renda disponível nesta competência.'
+                  : 'Cadastre a renda uma vez para os próximos meses.'}
               </p>
             </section>
           );
         })}
       </div>
       <section className="panel account-card finance-form-card">
-        <h2>Confirme sua renda</h2>
+        <h2>Sua renda fixa e extras do mês</h2>
         <IncomeForm
           key={`${data.month}:${own?.version ?? 0}`}
           month={data.month}
           income={own}
-          suggestion={previous?.amountCents}
           closed={!!data.period?.closedAt}
         />
       </section>
