@@ -8,17 +8,6 @@ import {
 } from '../category-actions';
 import type { MonthlyFinance } from '../service';
 
-const colors = [
-  '#286351',
-  '#88602c',
-  '#426a88',
-  '#685382',
-  '#8b4855',
-  '#607035',
-  '#657274',
-  '#aa593a',
-];
-
 type Category = MonthlyFinance['categories'][number];
 
 function Feedback({ state }: { state: CategoryActionState }) {
@@ -52,17 +41,14 @@ function CategoryEditor({ category }: { category?: Category }) {
       </div>
       <div>
         <label htmlFor={`${id}-color`}>Cor</label>
-        <select
+        <input
           id={`${id}-color`}
+          type="color"
           name="color"
-          defaultValue={category?.color ?? colors[0]}
-        >
-          {colors.map((color) => (
-            <option key={color} value={color}>
-              {color}
-            </option>
-          ))}
-        </select>
+          defaultValue={category?.color ?? '#286351'}
+          className="category-color-input"
+          title="Selecionar cor da categoria"
+        />
       </div>
       <button className="button secondary" type="submit" disabled={pending}>
         {pending

@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ArrowLeftRight,
   HeartHandshake,
+  Tags
 } from 'lucide-react';
 import { useHydrated } from '@/lib/use-hydrated';
 
@@ -20,6 +21,7 @@ const links = [
   { href: '/casal/rendas', label: 'Rendas', icon: Wallet },
   { href: '/casal/repasses', label: 'Repasses', icon: ArrowLeftRight },
   { href: '/casal/ajustes', label: 'Ajustes', icon: Settings2 },
+  { href: '/casal/categorias', label: 'Categorias', icon: Tags },
 ];
 export function FinanceNavigation() {
   const pathname = usePathname();
