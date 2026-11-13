@@ -18,7 +18,13 @@ import {
   householdMembers,
   recurringExpenses,
 } from '@/db/schema';
-import { actorHousehold, FinanceError, readEffectiveIncomes } from './service';
+import {
+  actorHousehold,
+  FinanceError,
+  readEffectiveIncomes,
+  readMonthlyFinance,
+} from './service';
+import { suggestPayments } from '@/lib/settlement/suggest-payments';
 import { monthSchema } from './schema';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -243,10 +249,23 @@ export async function getExpenseList(
       .orderBy(asc(expenses.dueDate), asc(expenses.createdAt), asc(expenses.id))
       .limit(EXPENSE_PAGE_SIZE)
       .offset((page - 1) * EXPENSE_PAGE_SIZE);
+    // O plano considera a competência inteira, independentemente dos filtros e da página.
+    const finance =
+      !period?.closedAt && rows.some((expense) => !expense.paidByUserId)
+        ? await readMonthlyFinance(tx, userId, month, 'settlements')
+        : null;
+    const paymentSuggestions = finance?.result
+      ? suggestPayments(
+          finance.result,
+          finance.expenses,
+          finance.rule.designatedPayerId,
+        )
+      : {};
     return {
       ...context,
       month,
       period,
+      paymentSuggestions,
       displayCategories,
       expenses: rows,
       filters: { ...filters, page },

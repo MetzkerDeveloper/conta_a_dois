@@ -1,4 +1,5 @@
 import 'server-only';
+import { getFinancialHistory } from './history';
 import { redirect } from 'next/navigation';
 import { getDb, type Database } from '@/db';
 import { requireUser } from '@/features/household/queries';
@@ -64,5 +65,11 @@ export function loadExpenses(params: SearchParams) {
       search: params.busca,
       page: params.pagina,
     }),
+  );
+}
+
+export function loadFinancialHistory(params: SearchParams) {
+  return loadForUser(params, (db, userId, month) =>
+    getFinancialHistory(db, userId, month, params.periodo),
   );
 }

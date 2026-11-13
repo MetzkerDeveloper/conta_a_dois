@@ -504,7 +504,7 @@ export async function getMonthlyFinance(
   });
 }
 
-async function readMonthlyFinance(
+export async function readMonthlyFinance(
   tx: Tx,
   userId: string,
   month: string,

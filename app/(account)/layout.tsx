@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChartNoAxesCombined } from 'lucide-react';
+import { ChartNoAxesCombined, UserRound } from 'lucide-react';
 import { SignOut } from '@/features/auth/components/sign-out';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +24,13 @@ export default async function AccountLayout({
             contas <span className="brand-light">a dois</span>
           </span>
         </Link>
-        <SignOut />
+        <div className="account-header-actions">
+          <Link href="/perfil" className="button secondary">
+            <UserRound size={16} />
+            Perfil
+          </Link>
+          <SignOut />
+        </div>
       </header>
       <main id="account-main" tabIndex={-1} className="account-container">
         {children}

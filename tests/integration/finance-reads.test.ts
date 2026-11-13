@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import * as schema from '@/db/schema';
+import { getFinancialHistory } from '@/features/finance/history';
 import {
   createHousehold,
   createHouseholdInvite,
@@ -282,6 +283,22 @@ it('preserva nomes de categorias e números do snapshot de mês fechado', async 
     name: 'Renomeada',
     color: '#286351',
   });
+  await saveIncome(db, f.ana, {
+    month: '2026-12',
+    amount: '3000,00',
+    version: 1,
+    applyFuture: true,
+  });
+  const history = await getFinancialHistory(db, f.bruno, '2026-12', '6');
+  const frozen = history.rows.find((row) => row.month === '2026-11')!;
+  expect(frozen.closed).toBe(true);
+  expect(frozen.outlook!.incomeCents).toBe(200000);
+  expect(frozen.outlook!.members.map((member) => member.shareCents)).toEqual([
+    50, 50,
+  ]);
+  expect(
+    frozen.categories.find((category) => category.id === f.category.id)!.name,
+  ).toBe(f.category.name);
   const list = await getExpenseList(db, f.bruno, '2026-11', {});
   expect(list.period!.closedAt).not.toBeNull();
   expect(list.totalCents).toBe(before.totalCents);
@@ -289,4 +306,63 @@ it('preserva nomes de categorias e números do snapshot de mês fechado', async 
     list.displayCategories.find((category) => category.id === f.category.id)!
       .name,
   ).toBe(f.category.name);
+});
+
+it('consulta histórico em lote, respeita vigências e não escreve projeções', async () => {
+  const f = await fixture(2);
+  for (const userId of [f.ana, f.bruno])
+    await saveIncome(db, userId, {
+      month: '2026-10',
+      amount: '1000,00',
+      version: 0,
+    });
+  await saveIncome(db, f.ana, {
+    month: '2026-12',
+    amount: '2000,00',
+    version: 1,
+    applyFuture: true,
+  });
+  const statements: string[] = [];
+  const observed = drizzle({
+    client: pool,
+    schema,
+    logger: {
+      logQuery(query) {
+        statements.push(query);
+      },
+    },
+  });
+  const history = await getFinancialHistory(observed, f.ana, '2026-12', '6');
+  expect(
+    statements.filter((query) => query.startsWith('select ')),
+  ).toHaveLength(7);
+  expect(
+    statements.some((query) => /^(insert|update|delete) /i.test(query)),
+  ).toBe(false);
+  expect(history.rows).toHaveLength(6);
+  expect(
+    history.rows.find((row) => row.month === '2026-09')!.outlook,
+  ).toBeNull();
+  const november = history.rows.find((row) => row.month === '2026-11')!;
+  expect(november.started).toBe(true);
+  expect(november.outlook!.incomeCents).toBe(200000);
+  expect(november.expenseCents).toBe(200);
+  expect(
+    november.outlook!.members.map((member) => member.remainingCents),
+  ).toEqual([99900, 99900]);
+  expect(history.rows.at(-1)!.outlook!.incomeCents).toBe(300000);
+  const future = await getFinancialHistory(db, f.bruno, '2027-01', '6');
+  expect(future.rows.at(-1)!.started).toBe(false);
+  expect(future.rows.at(-1)!.outlook!.incomeCents).toBe(300000);
+  const other = await fixture(1);
+  const isolated = await getFinancialHistory(db, other.ana, '2026-12', '6');
+  expect(
+    isolated.rows.find((row) => row.month === '2026-11')!.expenseCents,
+  ).toBe(100);
+  expect(
+    isolated.rows.find((row) => row.month === '2026-11')!.outlook,
+  ).toBeNull();
+  await expect(
+    getFinancialHistory(db, randomUUID(), '2026-12', '6'),
+  ).rejects.toThrow('Entre no espaço');
 });
