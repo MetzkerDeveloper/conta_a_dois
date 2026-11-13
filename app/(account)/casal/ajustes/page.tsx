@@ -4,7 +4,6 @@ import { FinanceHeader } from '@/features/finance/components/header';
 import { loadSettings, type SearchParams } from '@/features/finance/queries';
 import { InviteCard } from '@/features/household/components/invite-card';
 import { deleteAccountAction } from '@/features/household/actions';
-import { CategoryManager } from '@/features/finance/components/category-manager';
 
 export default async function SettingsPage({
   searchParams,
