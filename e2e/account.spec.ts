@@ -703,3 +703,179 @@ test('cadastra nova senha por e-mail e usa a senha atualizada no login', async (
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).toHaveURL(/\/comecar$/, { timeout: 30_000 });
 });
+
+test('explora evolução mensal e simula reserva sem confirmar dinheiro guardado', async ({
+  page,
+  context,
+  browser,
+}, testInfo) => {
+  const ana = await signIn(context, 'Ana');
+  const partnerContext = await browser.newContext({ baseURL });
+  try {
+    const bruno = await signIn(partnerContext, 'Bruno');
+    await createHousehold(db, ana, {
+      name: 'Casa com planos',
+      displayName: 'Ana',
+      splitMode: 'equal',
+      higherShareBps: 7000,
+      transferDay: 25,
+      consent: true,
+    });
+    const invite = await createHouseholdInvite(db, ana);
+    await acceptHouseholdInvite(db, bruno, {
+      token: invite.token,
+      displayName: 'Bruno',
+      consent: true,
+    });
+    for (const userId of [ana, bruno])
+      await saveIncome(db, userId, {
+        month: '2026-11',
+        amount: '2.000,00',
+        version: 0,
+      });
+    const data = await getMonthlyFinance(db, ana, '2026-11');
+    await createExpense(db, ana, {
+      month: '2026-11',
+      description: 'Moradia',
+      amount: '1.000,00',
+      dueDate: '2026-11-10',
+      categoryId: data.categories[0]!.id,
+      paidByUserId: null,
+      notes: '',
+      creationKey: randomUUID(),
+    });
+    await page.goto('/casal/evolucao?mes=2026-11&periodo=6');
+    await expect(
+      page.getByRole('heading', { name: 'Evolução financeira' }),
+    ).toBeVisible();
+    const reserve = page.getByRole('region', { name: 'Simulador de reserva' });
+    await expect(reserve).toContainText('1.500,00');
+    await expect(reserve).toContainText('18.000,00');
+    await expect(reserve).toContainText('4 meses para chegar');
+    const slider = page.getByRole('slider');
+    await slider.focus();
+    await slider.press('End');
+    await expect(reserve).toContainText('36.000,00');
+    await page.getByRole('button', { name: /^outubro de 2026:/ }).click();
+    await expect(slider).toBeDisabled();
+    await expect(reserve).toContainText('O simulador fica disponível');
+    await page.getByRole('button', { name: /^novembro de 2026:/ }).click();
+    await expect(slider).toBeEnabled();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath('evolucao-financeira.png'),
+      fullPage: true,
+    });
+  } finally {
+    await partnerContext.close();
+  }
+});
+
+test('perfil troca a senha, revoga outras sessões e mantém a preferência de tema', async ({
+  page,
+  context,
+  browser,
+}, testInfo) => {
+  const userId = await signIn(context, 'Ana do perfil');
+  const { rows } = await pool.query<{ email: string }>(
+    'select email from users where id = $1',
+    [userId],
+  );
+  const other = await browser.newContext({ baseURL });
+  try {
+    const login = await other.request.post('/api/auth/sign-in/email', {
+      headers: { origin: baseURL },
+      data: { email: rows[0]!.email, password: 'Senha-de-teste-123' },
+    });
+    expect(login.ok()).toBe(true);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/perfil');
+    await expect(
+      page.getByRole('heading', { name: 'Meu perfil' }),
+    ).toBeVisible();
+    await expect(page.getByText(rows[0]!.email, { exact: true })).toBeVisible();
+    await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
+    await page.getByRole('radio', { name: 'Claro', exact: true }).check();
+    await expect(page.locator('html')).toHaveCSS('color-scheme', 'light');
+    await page.getByRole('radio', { name: 'Escuro', exact: true }).check();
+    await page.reload();
+    await expect(
+      page.getByRole('radio', { name: 'Escuro', exact: true }),
+    ).toBeChecked();
+    await page.goto('/privacidade');
+    await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
+    await page.goto('/perfil');
+    await page
+      .getByLabel('Senha atual', { exact: true })
+      .fill('Senha-incorreta-123');
+    await page
+      .getByLabel('Nova senha', { exact: true })
+      .fill('Minha-nova-senha-456');
+    await page
+      .getByLabel('Confirme a nova senha', { exact: true })
+      .fill('Minha-nova-senha-456');
+    await page
+      .getByRole('button', { name: 'Alterar senha', exact: true })
+      .click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'A senha atual está incorreta.',
+    );
+    await page
+      .getByLabel('Senha atual', { exact: true })
+      .fill('Senha-de-teste-123');
+    await page
+      .getByRole('button', { name: 'Alterar senha', exact: true })
+      .click();
+    await expect(page.getByRole('status')).toContainText('Senha alterada.');
+    expect(
+      await (await other.request.get('/api/auth/get-session')).json(),
+    ).toBeNull();
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'Meu perfil' }),
+    ).toBeVisible();
+    await page.getByRole('radio', { name: 'Seguir o dispositivo' }).check();
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(page.locator('html')).toHaveCSS('color-scheme', 'light');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
+    await page.getByRole('radio', { name: 'Escuro', exact: true }).check();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement)
+        document.activeElement.blur();
+      window.scrollTo(0, 0);
+    });
+    await page.screenshot({
+      path: testInfo.outputPath('perfil-dark.png'),
+      fullPage: true,
+    });
+    const oldLogin = await other.request.post('/api/auth/sign-in/email', {
+      headers: { origin: baseURL },
+      data: { email: rows[0]!.email, password: 'Senha-de-teste-123' },
+    });
+    expect(oldLogin.ok()).toBe(false);
+    const newLogin = await other.request.post('/api/auth/sign-in/email', {
+      headers: { origin: baseURL },
+      data: { email: rows[0]!.email, password: 'Minha-nova-senha-456' },
+    });
+    expect(newLogin.ok()).toBe(true);
+  } finally {
+    await other.close();
+  }
+});
+
+test('perfil exige login e preserva o retorno para a página', async ({
+  page,
+}) => {
+  await page.goto('/perfil');
+  await expect(page).toHaveURL(/\/login\?next=%2Fperfil/);
+});

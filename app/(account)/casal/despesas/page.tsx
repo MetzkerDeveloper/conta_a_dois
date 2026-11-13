@@ -135,6 +135,28 @@ export default async function ExpensesPage({
           · total filtrado {formatMoney(data.filteredCents)}
         </p>
       )}
+      {Object.keys(data.paymentSuggestions).length > 0 && (
+        <p className="notice">
+          Sugestões de pagamento conforme o combinado do mês, considerando
+          contas pagas e repasses confirmados. Distribuímos contas inteiras para
+          aproximar a parte de cada um; ainda pode haver repasse. As sugestões
+          são recalculadas com os lançamentos e não confirmam pagamentos.
+        </p>
+      )}
+      {!data.period?.closedAt &&
+        data.expenses.some((expense) => !expense.paidByUserId) &&
+        Object.keys(data.paymentSuggestions).length === 0 && (
+          <p className="notice">
+            Cadastrem a renda dos dois para ver sugestões de quem pode pagar
+            cada conta.{' '}
+            <Link
+              className="text-link"
+              href={`/casal/rendas?mes=${data.month}`}
+            >
+              Ver rendas
+            </Link>
+          </p>
+        )}
       <section className="panel real-expense-list">
         {data.expenses.length === 0 ? (
           <div className="empty-state">
@@ -176,6 +198,20 @@ export default async function ExpensesPage({
                     }{' '}
                     · Vence em {expense.dueDate.split('-').reverse().join('/')}
                   </small>
+                  {!expense.paidByUserId &&
+                    data.paymentSuggestions[expense.id] && (
+                      <small>
+                        Sugestão:{' '}
+                        {
+                          data.members.find(
+                            (member) =>
+                              member.userId ===
+                              data.paymentSuggestions[expense.id],
+                          )?.displayName
+                        }{' '}
+                        paga esta conta
+                      </small>
+                    )}
                   {expense.notes && (
                     <p className="expense-note">{expense.notes}</p>
                   )}

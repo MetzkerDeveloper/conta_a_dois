@@ -60,3 +60,21 @@ Quantidade de SELECTs de negócio por carregamento, sem contar a verificação d
 Os testes de integração verificam a contagem das consultas atuais e a equivalência dos cálculos. A lista aplica busca literal por descrição/observações, categoria e pagamento no SQL, e carrega 25 despesas por página. Contagem, total do mês e total filtrado são agregados em uma consulta, em centavos exatos; o cálculo do acerto não usa a página da lista. A ordenação por vencimento, criação e ID evita ambiguidades em empates. A paginação por número usa OFFSET apenas dentro da competência, com página limitada ao total encontrado; reavaliar paginação por cursor se a medição indicar volumes mensais elevados. Os índices existentes por casal/competência são preservados.
 
 Para meses fechados, a lista projeta somente categorias e total do snapshot, sem transferir o JSON completo dos lançamentos. Isso preserva os nomes históricos sem anular o limite de registros carregados pela paginação.
+
+## Histórico e planejamento
+
+`/casal/evolucao` usa `features/finance/history.ts`: sete SELECTs por carregamento,
+independentemente de 6 ou 12 meses, em transação somente de leitura com isolamento
+repeatable read. A associação ao casal vem da sessão; todas as tabelas financeiras
+são filtradas por esse casal. Despesas são agregadas por competência e categoria
+no SQL, sem carregar os lançamentos. Vigências de renda fixa são resolvidas para
+cada mês, sem escrever projeções e sem retroagir a renda atual. A página não usa
+o gerador de recorrências: mostra somente os lançamentos existentes.
+
+Meses fechados projetam do snapshot apenas rendas, cotas, total e categorias. Os
+cálculos puros em `lib/settlement/financial-history.ts` usam centavos seguros e
+bigint em somas, produtos, médias e simulação de reserva. A sobra por membro é
+renda menos cota, incluindo a redistribuição quando ativa; repasses e pagamentos
+não entram como novas despesas. Meses sem competência iniciada ou sem as duas
+rendas são excluídos dos indicadores agregados. O simulador é efêmero, não altera
+o banco e não representa patrimônio nem reserva efetivamente acumulada.

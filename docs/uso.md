@@ -56,3 +56,49 @@ Para corrigir algo, marque a confirmação e use **Reabrir mês** no mesmo local
 Em **Ajustes → Seus dados**, baixe o JSON do perfil e do histórico compartilhado do casal. Em **Excluir conta e dados**, digite `EXCLUIR` para apagar o perfil e o espaço financeiro completo. A exclusão é irreversível e remove o histórico também para o outro membro, que mantém a conta, mas perde o acesso ao casal. Exporte antes de confirmar.
 
 Exportação mensal em CSV permanece como próxima melhoria. Antes da abertura pública, complete os dados legais do controlador e confirme os prazos de retenção dos provedores na política de privacidade.
+
+Na lista de despesas, contas pendentes exibem uma sugestão de quem pode pagar,
+quando os dois membros têm renda cadastrada na competência. O plano considera
+as contas de todo o mês, a regra congelada (incluindo redistribuição, se aplicada),
+os pagamentos e os repasses confirmados; filtros e paginação não mudam a divisão.
+O pagador padrão, quando configurado, tem prioridade. Sem ele, contas maiores são
+distribuídas primeiro para aproximar os saldos de cada pessoa, com desempate
+estável. Essa aproximação pode deixar um repasse residual e é recalculada quando
+os dados mudam. A sugestão não registra pagamento nem altera meses fechados;
+ao pagar, confirme quem efetivamente pagou em “Marcar como paga”.
+
+## Evolução financeira
+
+Acesse **Evolução** no menu do casal para consultar os últimos 6 ou 12 meses até
+a competência escolhida. Selecione um mês no gráfico para ver as cotas, as sobras
+por pessoa, as categorias e a comparação com o mês anterior. A tabela oferece os
+mesmos valores mensais em números.
+
+A sobra prevista é a renda menos a cota nas despesas registradas, incluindo contas
+pendentes. Pagamentos e repasses não são novas despesas: não alteram essa sobra.
+Uma sobra negativa indica falta na renda. Os totais e médias incluem apenas
+competências iniciadas com as duas rendas disponíveis; meses incompletos ficam
+identificados. Meses ainda sem lançamentos podem mostrar a projeção da renda fixa
+no detalhe, mas ficam fora dos indicadores. Nos meses fechados, rendas, cotas e
+nomes das categorias vêm do snapshot de fechamento.
+
+O simulador calcula uma contribuição de 0% a 100% da sobra positiva do casal,
+mostra o total em 12 meses e o prazo para acumular seis meses das despesas daquela
+competência. É um cenário sem rendimentos, partindo de zero e mantendo a mesma
+contribuição; não registra aportes, metas ou dinheiro guardado. Gastos pessoais
+não lançados também precisam ser considerados antes de separar a reserva.
+
+## Perfil, senha e aparência
+
+Use **Perfil**, no cabeçalho da área autenticada, para consultar seu nome e e-mail,
+trocar a senha e escolher a aparência do sistema. O acesso também está disponível
+em `/perfil`, inclusive antes de criar ou entrar em um casal.
+
+Para trocar a senha, informe a atual, uma nova de 8 a 128 caracteres e confirme.
+As outras sessões da sua conta são encerradas após a alteração; este navegador
+continua conectado. Se esqueceu a senha ou ainda não cadastrou uma, use o link
+para a tela de login e solicite o e-mail de cadastro/recuperação de senha.
+
+Em **Aparência**, escolha **Claro**, **Escuro** ou **Seguir o dispositivo**. A
+preferência é aplicada às telas do sistema e guardada neste navegador; não muda
+o tema do seu par nem sincroniza automaticamente com outros dispositivos.

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { themeScript } from '@/lib/theme';
 
 export const metadata: Metadata = {
   title: { default: 'Contas a Dois', template: '%s · Contas a Dois' },
@@ -14,7 +15,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>{children}</body>
     </html>
   );

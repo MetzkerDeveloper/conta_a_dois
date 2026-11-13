@@ -5,18 +5,20 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
 import {
   House,
+  ChartNoAxesCombined,
   ReceiptText,
   Wallet,
   Settings2,
   RefreshCw,
   ArrowLeftRight,
   HeartHandshake,
-  Tags
+  Tags,
 } from 'lucide-react';
 import { useHydrated } from '@/lib/use-hydrated';
 
 const links = [
   { href: '/casal', label: 'Painel', icon: House },
+  { href: '/casal/evolucao', label: 'Evolução', icon: ChartNoAxesCombined },
   { href: '/casal/despesas', label: 'Despesas', icon: ReceiptText },
   { href: '/casal/rendas', label: 'Rendas', icon: Wallet },
   { href: '/casal/repasses', label: 'Repasses', icon: ArrowLeftRight },
