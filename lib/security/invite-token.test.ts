@@ -14,9 +14,10 @@ it('gera tokens aleatórios de 256 bits e armazena somente o hash', () => {
   expect(hashInviteToken(token)).not.toBe(token);
   expect(hashInviteToken(token)).toBe(hashInviteToken(token));
 });
-it('só permite retorno para o casal ou um convite válido', () => {
+it('só permite retorno para páginas internas autorizadas', () => {
   const path = `/convite/${createInviteToken()}`;
   expect(safeReturnPath(path)).toBe(path);
+  expect(safeReturnPath('/perfil')).toBe('/perfil');
   for (const value of [
     'https://fora.test',
     '//fora.test',

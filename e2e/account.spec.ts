@@ -821,7 +821,7 @@ test('perfil troca a senha, revoga outras sessões e mantém a preferência de t
     await page
       .getByRole('button', { name: 'Alterar senha', exact: true })
       .click();
-    await expect(page.getByRole('alert')).toHaveText(
+    await expect(page.locator('p[role="alert"]')).toHaveText(
       'A senha atual está incorreta.',
     );
     await page
