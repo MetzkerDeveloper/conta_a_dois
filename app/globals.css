@@ -194,12 +194,13 @@ textarea {
   }
   .finance-add {
     position: fixed;
-    bottom: 90px;
+    bottom: 7.5rem;
     right: 18px;
     z-index: 20;
     border-radius: 24px;
     padding: 13px 17px;
     box-shadow: 0 3px 12px rgb(0 0 0 / 0.15);
+   
   }
   .month-toolbar,
   .month-form {
